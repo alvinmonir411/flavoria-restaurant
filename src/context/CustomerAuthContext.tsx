@@ -18,7 +18,20 @@ export const DEFAULT_CUSTOMER: CustomerUser = {
   vipTier: 'VIP Club Member'
 };
 
+export function formatNameFromEmail(email: string): string {
+  if (!email) return 'Guest Customer';
+  if (email.toLowerCase().includes('alvin')) return 'Alvin Monir';
+  const handle = email.split('@')[0] || 'Guest';
+  const clean = handle.replace(/[^a-zA-Z0-9]/g, ' ').trim();
+  if (!clean) return 'Guest Customer';
+  return clean
+    .split(/\s+/)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
 const STORAGE_KEY = 'flavoria_customer_session';
+const REGISTRY_KEY = 'flavoria_customer_registry';
 
 interface CustomerAuthContextType {
   customer: CustomerUser | null;
@@ -56,16 +69,40 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
   }, []);
 
   const loginCustomer = (email: string, name?: string, phone?: string) => {
+    const normalizedEmail = (email || 'alvin@example.com').trim().toLowerCase();
+    
+    // Look up in persistent registry
+    let existingProfile: CustomerUser | null = null;
+    try {
+      const reg = localStorage.getItem(REGISTRY_KEY);
+      if (reg) {
+        const users = JSON.parse(reg);
+        if (users && users[normalizedEmail]) {
+          existingProfile = users[normalizedEmail];
+        }
+      }
+    } catch {}
+
+    const resolvedName = name?.trim() || existingProfile?.name || formatNameFromEmail(normalizedEmail);
+    const resolvedPhone = phone?.trim() || existingProfile?.phone || (normalizedEmail.includes('alvin') ? '+880 1712-345678' : '+880 1700-123456');
+    const resolvedTier = existingProfile?.vipTier || (normalizedEmail.includes('alvin') ? 'VIP Club Member' : 'Member');
+
     const user: CustomerUser = {
-      id: `cust-${Date.now()}`,
-      name: name || (email.toLowerCase().includes('alvin') ? 'Alvin Monir' : email.split('@')[0]),
-      email: email || 'alvin@example.com',
-      phone: phone || '+880 1712-345678',
-      vipTier: 'VIP Club Member'
+      id: existingProfile?.id || `cust-${Date.now()}`,
+      name: resolvedName,
+      email: normalizedEmail,
+      phone: resolvedPhone,
+      vipTier: resolvedTier
     };
+
     setCustomer(user);
+
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+      const reg = localStorage.getItem(REGISTRY_KEY);
+      const users = reg ? JSON.parse(reg) : {};
+      users[normalizedEmail] = user;
+      localStorage.setItem(REGISTRY_KEY, JSON.stringify(users));
     } catch (e) {
       console.error(e);
     }
@@ -85,6 +122,12 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
       const next = prev ? { ...prev, ...updated } : { ...DEFAULT_CUSTOMER, ...updated };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        const reg = localStorage.getItem(REGISTRY_KEY);
+        const users = reg ? JSON.parse(reg) : {};
+        if (next.email) {
+          users[next.email.toLowerCase()] = next;
+          localStorage.setItem(REGISTRY_KEY, JSON.stringify(users));
+        }
       } catch (e) {
         console.error(e);
       }

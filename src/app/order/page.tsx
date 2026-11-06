@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Navbar from '@/components/landing/Navbar';
 import Footer from '@/components/landing/Footer';
 import { useCurrency } from '@/context/CurrencyContext';
+import { useCustomerAuth } from '@/context/CustomerAuthContext';
 import { MenuItem, MenuCategory, Order } from '@/types';
 import { INITIAL_MENU_ITEMS } from '@/lib/seed-data';
 import { 
@@ -58,6 +59,7 @@ interface CartItem extends MenuItem {
 
 export default function TableOrderPage() {
   const { formatPrice, convertPrice } = useCurrency();
+  const { customer } = useCustomerAuth();
   const [items, setItems] = useState<MenuItem[]>(INITIAL_MENU_ITEMS);
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -70,8 +72,15 @@ export default function TableOrderPage() {
   const [deliveryFee, setDeliveryFee] = useState(0.5); // ~60 BDT
   const [pickupTime, setPickupTime] = useState('ASAP (~20-25 mins)');
 
-  const [customerName, setCustomerName] = useState('Alvin Monir');
-  const [customerPhone, setCustomerPhone] = useState('+880 1712-345678');
+  const [customerName, setCustomerName] = useState(customer?.name || 'Alvin Monir');
+  const [customerPhone, setCustomerPhone] = useState(customer?.phone || '+880 1712-345678');
+
+  useEffect(() => {
+    if (customer) {
+      setCustomerName(customer.name);
+      setCustomerPhone(customer.phone);
+    }
+  }, [customer]);
   
   // Cart state
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -178,6 +187,7 @@ export default function TableOrderPage() {
           tableNumber: orderType === 'Dine-In' ? selectedTable.split(' ')[0] : undefined,
           customerName: customerName || (orderType === 'Delivery' ? 'Delivery Guest' : 'Table Guest'),
           customerPhone: customerPhone || '+880 1712-345678',
+          customerEmail: customer?.email,
           deliveryAddress: orderType === 'Delivery' ? deliveryAddress : undefined,
           deliveryZone: orderType === 'Delivery' ? deliveryZone : undefined,
           deliveryFee: currentDeliveryFee,

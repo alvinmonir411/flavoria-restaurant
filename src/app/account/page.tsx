@@ -47,41 +47,58 @@ export default function CustomerAccountPage() {
   const [customerName, setCustomerName] = useState('Alvin Monir');
   const [phone, setPhone] = useState('+880 1712-345678');
   const [email, setEmail] = useState('alvin@example.com');
-  const [loginEmail, setLoginEmail] = useState('alvin@example.com');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginName, setLoginName] = useState('');
   const [loginPassword, setLoginPassword] = useState('••••••••');
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  // Addresses State
+  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
 
   useEffect(() => {
     if (customer) {
       setCustomerName(customer.name);
       setEmail(customer.email);
       setPhone(customer.phone);
+
+      const normEmail = customer.email.toLowerCase();
+      try {
+        const saved = localStorage.getItem(`flavoria_addresses_${normEmail}`);
+        if (saved) {
+          setAddresses(JSON.parse(saved));
+        } else if (normEmail.includes('alvin')) {
+          const defaultAlvinAddresses: SavedAddress[] = [
+            {
+              id: 'addr-1',
+              label: 'Home (Gulshan)',
+              recipientName: 'Alvin Monir',
+              phone: '+880 1712-345678',
+              addressLine: 'House 14, Road 71, Block NW(B)',
+              area: 'Gulshan-2, Dhaka',
+              deliveryInstructions: 'Call at security gate; 4th floor Apt 4A',
+              isDefault: true
+            },
+            {
+              id: 'addr-2',
+              label: 'Office (Banani)',
+              recipientName: 'Alvin Monir',
+              phone: '+880 1712-345678',
+              addressLine: 'Level 8, Tower 52, Road 11',
+              area: 'Banani, Dhaka',
+              deliveryInstructions: 'Leave with reception floor captain',
+              isDefault: false
+            }
+          ];
+          setAddresses(defaultAlvinAddresses);
+          localStorage.setItem(`flavoria_addresses_${normEmail}`, JSON.stringify(defaultAlvinAddresses));
+        } else {
+          setAddresses([]);
+        }
+      } catch {
+        setAddresses([]);
+      }
     }
   }, [customer]);
-
-  // Addresses State
-  const [addresses, setAddresses] = useState<SavedAddress[]>([
-    {
-      id: 'addr-1',
-      label: 'Home (Gulshan)',
-      recipientName: 'Alvin Monir',
-      phone: '+880 1712-345678',
-      addressLine: 'House 14, Road 71, Block NW(B)',
-      area: 'Gulshan-2, Dhaka',
-      deliveryInstructions: 'Call at security gate; 4th floor Apt 4A',
-      isDefault: true
-    },
-    {
-      id: 'addr-2',
-      label: 'Office (Banani)',
-      recipientName: 'Alvin Monir',
-      phone: '+880 1712-345678',
-      addressLine: 'Level 8, Tower 52, Road 11',
-      area: 'Banani, Dhaka',
-      deliveryInstructions: 'Leave with reception floor captain',
-      isDefault: false
-    }
-  ]);
 
   const [newAddrLabel, setNewAddrLabel] = useState('');
   const [newAddrLine, setNewAddrLine] = useState('');
@@ -95,6 +112,14 @@ export default function CustomerAccountPage() {
 
   useEffect(() => {
     async function fetchAccountData() {
+      if (!customer) {
+        setOrders([]);
+        setReservations([]);
+        setLoadingOrders(false);
+        return;
+      }
+
+      setLoadingOrders(true);
       try {
         const [ordRes, resRes] = await Promise.all([
           fetch('/api/orders'),
@@ -102,11 +127,45 @@ export default function CustomerAccountPage() {
         ]);
         if (ordRes.ok) {
           const ordData = await ordRes.json();
-          setOrders(ordData.orders || []);
+          const allOrders: Order[] = ordData.orders || [];
+          
+          const normEmail = customer.email.toLowerCase();
+          const normName = customer.name.toLowerCase();
+
+          // Filter orders for this specific customer
+          const myOrders = allOrders.filter(o => {
+            if (normEmail.includes('alvin')) {
+              return true; // Demo VIP account view
+            }
+            const ordCustEmail = ((o as any).customerEmail || '').toLowerCase();
+            const ordCustName = (o.customerName || '').toLowerCase();
+            const ordPhone = o.customerPhone || '';
+
+            return (
+              ordCustEmail === normEmail ||
+              ordCustName === normName ||
+              (normName.length > 2 && ordCustName.includes(normName)) ||
+              (customer.phone && ordPhone === customer.phone)
+            );
+          });
+          setOrders(myOrders);
         }
         if (resRes.ok) {
           const resData = await resRes.json();
-          setReservations(resData.reservations || []);
+          const allReservations: Reservation[] = resData.reservations || [];
+          
+          const normEmail = customer.email.toLowerCase();
+          const normName = customer.name.toLowerCase();
+
+          const myReservations = allReservations.filter(r => {
+            if (normEmail.includes('alvin')) {
+              return true;
+            }
+            const resEmail = ((r.email || (r as any).guestEmail || '')).toLowerCase();
+            const resName = (r.guestName || '').toLowerCase();
+            return resEmail === normEmail || resName.includes(normName);
+          });
+          setReservations(myReservations);
         }
       } catch (e) {
         console.error(e);
@@ -115,7 +174,7 @@ export default function CustomerAccountPage() {
       }
     }
     fetchAccountData();
-  }, []);
+  }, [customer]);
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,24 +185,33 @@ export default function CustomerAccountPage() {
 
   const handleAddAddress = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newAddrLine) return;
+    if (!newAddrLine || !customer) return;
     const addr: SavedAddress = {
       id: `addr-${Date.now()}`,
       label: newAddrLabel || 'Other',
-      recipientName: customerName,
-      phone,
+      recipientName: customerName || customer.name,
+      phone: phone || customer.phone,
       addressLine: newAddrLine,
       area: newAddrArea,
-      isDefault: false
+      isDefault: addresses.length === 0
     };
-    setAddresses([...addresses, addr]);
+    const updated = [...addresses, addr];
+    setAddresses(updated);
+    try {
+      localStorage.setItem(`flavoria_addresses_${customer.email.toLowerCase()}`, JSON.stringify(updated));
+    } catch {}
     setNewAddrLine('');
     setNewAddrLabel('');
     setShowAddAddress(false);
   };
 
   const handleRemoveAddress = (id: string) => {
-    setAddresses(addresses.filter(a => a.id !== id));
+    if (!customer) return;
+    const updated = addresses.filter(a => a.id !== id);
+    setAddresses(updated);
+    try {
+      localStorage.setItem(`flavoria_addresses_${customer.email.toLowerCase()}`, JSON.stringify(updated));
+    } catch {}
   };
 
   const handleReorder = (order: Order) => {
@@ -187,10 +255,23 @@ export default function CustomerAccountPage() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                loginCustomer(loginEmail || 'alvin@example.com', 'Alvin Monir');
+                loginCustomer(loginEmail || 'alvin@example.com', loginName || undefined);
               }}
               className="space-y-3.5 text-left mb-5"
             >
+              <div>
+                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                  Full Name <span className="text-stone-400 font-normal lowercase">(optional for login)</span>
+                </label>
+                <input
+                  type="text"
+                  value={loginName}
+                  onChange={(e) => setLoginName(e.target.value)}
+                  placeholder="e.g. Rahim Ahmed, Sara Khan"
+                  className="w-full px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-xs text-stone-900 focus:outline-none focus:border-[#ea580c] transition-colors"
+                />
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
                   Email Address
@@ -200,7 +281,7 @@ export default function CustomerAccountPage() {
                   required
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="e.g. alvin@example.com"
+                  placeholder="e.g. rahim@gmail.com"
                   className="w-full px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-xs text-stone-900 focus:outline-none focus:border-[#ea580c] transition-colors"
                 />
               </div>
@@ -223,7 +304,7 @@ export default function CustomerAccountPage() {
                 type="submit"
                 className="w-full py-3 rounded-xl btn-primary-orange text-xs font-bold uppercase tracking-wider shadow-md transition-all mt-2"
               >
-                Sign In to Customer Account
+                Sign In / Enter Dashboard
               </button>
             </form>
 
@@ -231,10 +312,19 @@ export default function CustomerAccountPage() {
               <button
                 type="button"
                 onClick={() => loginCustomer('alvin@example.com', 'Alvin Monir')}
+                className="w-full py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold flex items-center justify-center gap-2 transition-colors border border-amber-200"
+              >
+                <LogIn className="w-3.5 h-3.5 text-amber-600" />
+                <span>Demo 1: Sign In as Alvin Monir (VIP Member • 7 Orders)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => loginCustomer('rahim.ahmed@example.com', 'Rahim Ahmed')}
                 className="w-full py-2.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#ea580c] text-xs font-bold flex items-center justify-center gap-2 transition-colors border border-orange-200"
               >
                 <LogIn className="w-3.5 h-3.5" />
-                <span>Instant Demo: Sign In as Alvin Monir</span>
+                <span>Demo 2: Sign In as Rahim Ahmed (Guest Member • Fresh)</span>
               </button>
 
               <Link
@@ -255,13 +345,13 @@ export default function CustomerAccountPage() {
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200 shadow-xs mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-2xl bg-orange-50 border border-orange-200 flex items-center justify-center text-[#EA580C] text-2xl font-serif font-bold">
-                {customerName.charAt(0)}
+                {customerName.charAt(0) || 'C'}
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="font-serif text-2xl font-bold text-stone-900">{customerName}</h1>
                   <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold uppercase border border-amber-200">
-                    VIP Club Member
+                    {customer?.vipTier || 'Member'}
                   </span>
                 </div>
                 <p className="text-xs text-stone-500 mt-1">{phone} • {email}</p>

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCart } from '@/context/CartContext';
+import { useCustomerAuth } from '@/context/CustomerAuthContext';
 import { X, ShoppingBag, Plus, Minus, Trash2, CheckCircle, ArrowRight } from 'lucide-react';
 import { Order, OrderType } from '@/types';
 
@@ -16,14 +17,22 @@ export default function CartDrawer() {
     isCartOpen, 
     setIsCartOpen 
   } = useCart();
+  const { customer } = useCustomerAuth();
 
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerName, setCustomerName] = useState(customer?.name || '');
+  const [customerPhone, setCustomerPhone] = useState(customer?.phone || '');
   const [orderType, setOrderType] = useState<OrderType>('Delivery');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (customer) {
+      if (!customerName) setCustomerName(customer.name);
+      if (!customerPhone) setCustomerPhone(customer.phone);
+    }
+  }, [customer]);
 
   if (!isCartOpen) return null;
 
@@ -49,6 +58,7 @@ export default function CartDrawer() {
           orderType,
           customerName,
           customerPhone,
+          customerEmail: customer?.email,
           items,
           totalAmount: total,
           notes: notes || 'Private packaging requested'
