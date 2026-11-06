@@ -13,6 +13,15 @@ export async function POST(req: Request) {
     if (email) {
       const cleanEmail = email.trim().toLowerCase();
       matchedStaff = staffList.find(s => s.email?.toLowerCase() === cleanEmail);
+      if (!matchedStaff) {
+        if (cleanEmail === 'owner@flavoria.com') {
+          matchedStaff = staffList.find(s => s.role === 'Owner / Admin');
+        } else if (cleanEmail === 'finance@flavoria.com') {
+          matchedStaff = staffList.find(s => s.role === 'Accountant');
+        } else if (cleanEmail === 'orders@flavoria.com') {
+          matchedStaff = staffList.find(s => s.role === 'Order Manager');
+        }
+      }
     } else if (pin) {
       matchedStaff = staffList.find(s => s.pinCode === pin.trim());
     } else if (role) {

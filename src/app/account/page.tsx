@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Navbar from '@/components/landing/Navbar';
 import Footer from '@/components/landing/Footer';
 import { useCart } from '@/context/CartContext';
 import { useCurrency } from '@/context/CurrencyContext';
 import { useCustomerAuth, DEFAULT_CUSTOMER } from '@/context/CustomerAuthContext';
+import { useStaffAuth } from '@/context/StaffAuthContext';
 import { Order, Reservation } from '@/types';
 import { 
   User, 
@@ -23,7 +25,14 @@ import {
   Star,
   Receipt,
   LogOut,
-  LogIn
+  LogIn,
+  Crown,
+  ClipboardList,
+  ChefHat,
+  Truck,
+  Eye,
+  EyeOff,
+  AlertCircle
 } from 'lucide-react';
 
 interface SavedAddress {
@@ -38,10 +47,17 @@ interface SavedAddress {
 }
 
 export default function CustomerAccountPage() {
+  const router = useRouter();
   const { addToCart } = useCart();
   const { formatPrice } = useCurrency();
   const { customer, isCustomerLoggedIn, loginCustomer, logoutCustomer, updateCustomerProfile } = useCustomerAuth();
+  const { loginWithEmail: loginStaffWithEmail } = useStaffAuth();
   const [activeTab, setActiveTab] = useState<'profile' | 'addresses' | 'orders' | 'reservations'>('orders');
+
+  // Unified Auth State
+  const [authStatusMessage, setAuthStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Customer Profile State
   const [customerName, setCustomerName] = useState('Alvin Monir');
@@ -232,46 +248,105 @@ export default function CustomerAccountPage() {
     });
   };
 
+  const handleSmartLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = loginEmail.trim().toLowerCase();
+    if (!cleanEmail) {
+      setAuthStatusMessage({ type: 'error', text: 'Please enter your email address.' });
+      return;
+    }
+
+    setAuthStatusMessage(null);
+    setIsAuthenticating(true);
+
+    try {
+      // Step 1: Check if this email is an enterprise staff / admin account
+      const staffResult = await loginStaffWithEmail(cleanEmail, loginPassword);
+      if (staffResult.success && staffResult.staff) {
+        setAuthStatusMessage({ 
+          type: 'success', 
+          text: `✓ Verified as ${staffResult.staff.role}! Opening ${staffResult.staff.name}'s workstation...` 
+        });
+        setTimeout(() => {
+          router.push(staffResult.redirectUrl || '/management');
+        }, 600);
+        return;
+      }
+
+      // Step 2: If not a staff member, authenticate as Customer
+      loginCustomer(cleanEmail, loginName || undefined);
+      setAuthStatusMessage({ 
+        type: 'success', 
+        text: `✓ Welcome to your personal dashboard!` 
+      });
+    } catch (err: any) {
+      setAuthStatusMessage({ type: 'error', text: err.message || 'Login failed. Please try again.' });
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleQuickRoleSelect = async (roleEmail: string, roleName?: string, isStaffRole?: boolean) => {
+    setLoginEmail(roleEmail);
+    setLoginPassword('••••••••');
+    setAuthStatusMessage(null);
+    setIsAuthenticating(true);
+
+    if (isStaffRole) {
+      const staffResult = await loginStaffWithEmail(roleEmail, '••••••••');
+      if (staffResult.success && staffResult.staff) {
+        setAuthStatusMessage({ 
+          type: 'success', 
+          text: `✓ Verified as ${staffResult.staff.role}! Redirecting...` 
+        });
+        setTimeout(() => {
+          router.push(staffResult.redirectUrl || '/management');
+        }, 500);
+      }
+    } else {
+      loginCustomer(roleEmail, roleName);
+      setAuthStatusMessage({ 
+        type: 'success', 
+        text: `✓ Signed in as ${roleName || 'Customer'}!` 
+      });
+    }
+    setIsAuthenticating(false);
+  };
+
   return (
     <div className="min-h-screen bg-[#FAF8F5] text-stone-900 flex flex-col font-sans">
       <Navbar />
 
       {!isCustomerLoggedIn ? (
         // -------------------------------------------------------------
-        // Logged-out State: Dedicated Customer Sign In Card
+        // Smart Unified Login Portal (Admin, Staff & Customer)
         // -------------------------------------------------------------
-        <main className="max-w-md mx-auto w-full px-4 py-16 flex-1 flex flex-col justify-center">
-          <div className="bg-white rounded-3xl p-8 border border-stone-200 shadow-xl text-center">
-            <div className="w-16 h-16 rounded-2xl bg-orange-50 border border-orange-200 flex items-center justify-center text-[#ea580c] mx-auto mb-4">
-              <User className="w-8 h-8" />
+        <main className="max-w-xl mx-auto w-full px-4 py-12 sm:py-16 flex-1 flex flex-col justify-center">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200 shadow-xl text-center">
+            
+            <div className="w-16 h-16 rounded-2xl bg-orange-50 border border-orange-200 flex items-center justify-center text-[#ea580c] mx-auto mb-4 shadow-xs">
+              <ShieldCheck className="w-8 h-8" />
             </div>
-            <h1 className="font-serif text-2xl font-bold text-stone-900 mb-1">
-              Customer Sign In
+
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 mb-1.5">
+              Flavoria Unified Portal
             </h1>
-            <p className="text-xs text-stone-500 mb-6 font-light">
-              Sign in to manage your dining reservations, active delivery orders, and VIP loyalty benefits.
+            <p className="text-xs text-stone-500 mb-6 font-light max-w-md mx-auto">
+              Sign in with your email &amp; password. The system automatically identifies your role (Admin, Manager, Chef, Kitchen, Driver, or Customer) and opens your workstation.
             </p>
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                loginCustomer(loginEmail || 'alvin@example.com', loginName || undefined);
-              }}
-              className="space-y-3.5 text-left mb-5"
-            >
-              <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                  Full Name <span className="text-stone-400 font-normal lowercase">(optional for login)</span>
-                </label>
-                <input
-                  type="text"
-                  value={loginName}
-                  onChange={(e) => setLoginName(e.target.value)}
-                  placeholder="e.g. Rahim Ahmed, Sara Khan"
-                  className="w-full px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-xs text-stone-900 focus:outline-none focus:border-[#ea580c] transition-colors"
-                />
+            {authStatusMessage && (
+              <div className={`p-3 rounded-xl mb-4 text-xs font-bold flex items-center justify-center gap-2 border ${
+                authStatusMessage.type === 'success' 
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                  : 'bg-rose-50 text-rose-800 border-rose-200'
+              }`}>
+                {authStatusMessage.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-rose-600" />}
+                <span>{authStatusMessage.text}</span>
               </div>
+            )}
 
+            <form onSubmit={handleSmartLogin} className="space-y-3.5 text-left mb-6">
               <div>
                 <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
                   Email Address
@@ -281,7 +356,7 @@ export default function CustomerAccountPage() {
                   required
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="e.g. rahim@gmail.com"
+                  placeholder="e.g. manager@flavoria.com, admin@flavoria.com, or user@gmail.com"
                   className="w-full px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-xs text-stone-900 focus:outline-none focus:border-[#ea580c] transition-colors"
                 />
               </div>
@@ -290,50 +365,145 @@ export default function CustomerAccountPage() {
                 <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
                   Password
                 </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-xs text-stone-900 focus:outline-none focus:border-[#ea580c] transition-colors pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                  Full Name <span className="text-stone-400 font-normal lowercase">(for new customer signups)</span>
+                </label>
                 <input
-                  type="password"
-                  required
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="••••••••"
+                  type="text"
+                  value={loginName}
+                  onChange={(e) => setLoginName(e.target.value)}
+                  placeholder="e.g. Rahim Ahmed, Sara Khan (optional for staff)"
                   className="w-full px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-xs text-stone-900 focus:outline-none focus:border-[#ea580c] transition-colors"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl btn-primary-orange text-xs font-bold uppercase tracking-wider shadow-md transition-all mt-2"
+                disabled={isAuthenticating}
+                className="w-full py-3 rounded-xl btn-primary-orange text-xs font-bold uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                Sign In / Enter Dashboard
+                {isAuthenticating ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Verifying Role &amp; Access...</span>
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4" />
+                    <span>Sign In (Auto-Detect Role)</span>
+                  </>
+                )}
               </button>
             </form>
 
-            <div className="pt-4 border-t border-stone-100 flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => loginCustomer('alvin@example.com', 'Alvin Monir')}
-                className="w-full py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold flex items-center justify-center gap-2 transition-colors border border-amber-200"
-              >
-                <LogIn className="w-3.5 h-3.5 text-amber-600" />
-                <span>Demo 1: Sign In as Alvin Monir (VIP Member • 7 Orders)</span>
-              </button>
+            {/* Quick Role Selection Chips for instantaneous demonstration */}
+            <div className="pt-5 border-t border-stone-100 text-left">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-stone-400 mb-2.5 text-center">
+                ⚡ Instant 1-Click Role Login Demo
+              </p>
 
-              <button
-                type="button"
-                onClick={() => loginCustomer('rahim.ahmed@example.com', 'Rahim Ahmed')}
-                className="w-full py-2.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#ea580c] text-xs font-bold flex items-center justify-center gap-2 transition-colors border border-orange-200"
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span>Demo 2: Sign In as Rahim Ahmed (Guest Member • Fresh)</span>
-              </button>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleQuickRoleSelect('admin@flavoria.com', 'Alvin Monir', true)}
+                  className="p-2.5 rounded-xl bg-amber-50/70 hover:bg-amber-100/70 border border-amber-200 text-left transition-colors group"
+                >
+                  <div className="flex items-center gap-1.5 mb-1 text-amber-700 font-bold text-xs">
+                    <Crown className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Owner / Admin</span>
+                  </div>
+                  <p className="text-[10px] text-stone-500 font-mono truncate">admin@flavoria.com</p>
+                </button>
 
-              <Link
-                href="/staff-login"
-                className="text-xs text-stone-500 hover:text-[#ea580c] transition-colors mt-2"
-              >
-                Restaurant Staff or Management? Click here →
-              </Link>
+                <button
+                  type="button"
+                  onClick={() => handleQuickRoleSelect('manager@flavoria.com', 'Rahim Chowdhury', true)}
+                  className="p-2.5 rounded-xl bg-blue-50/70 hover:bg-blue-100/70 border border-blue-200 text-left transition-colors group"
+                >
+                  <div className="flex items-center gap-1.5 mb-1 text-blue-700 font-bold text-xs">
+                    <ClipboardList className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Restaurant Manager</span>
+                  </div>
+                  <p className="text-[10px] text-stone-500 font-mono truncate">manager@flavoria.com</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickRoleSelect('chef@flavoria.com', 'Chef Jean-Luc', true)}
+                  className="p-2.5 rounded-xl bg-emerald-50/70 hover:bg-emerald-100/70 border border-emerald-200 text-left transition-colors group"
+                >
+                  <div className="flex items-center gap-1.5 mb-1 text-emerald-700 font-bold text-xs">
+                    <ChefHat className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Executive Chef</span>
+                  </div>
+                  <p className="text-[10px] text-stone-500 font-mono truncate">chef@flavoria.com</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickRoleSelect('driver@flavoria.com', 'Tariqul Islam', true)}
+                  className="p-2.5 rounded-xl bg-indigo-50/70 hover:bg-indigo-100/70 border border-indigo-200 text-left transition-colors group"
+                >
+                  <div className="flex items-center gap-1.5 mb-1 text-indigo-700 font-bold text-xs">
+                    <Truck className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Delivery Driver</span>
+                  </div>
+                  <p className="text-[10px] text-stone-500 font-mono truncate">driver@flavoria.com</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickRoleSelect('alvin@example.com', 'Alvin Monir', false)}
+                  className="p-2.5 rounded-xl bg-stone-100 hover:bg-orange-50 border border-stone-200 hover:border-orange-200 text-left transition-colors group"
+                >
+                  <div className="flex items-center gap-1.5 mb-1 text-stone-800 group-hover:text-[#ea580c] font-bold text-xs">
+                    <User className="w-3.5 h-3.5 text-stone-500 group-hover:text-[#ea580c]" />
+                    <span>VIP Customer</span>
+                  </div>
+                  <p className="text-[10px] text-stone-500 font-mono truncate">alvin@example.com</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickRoleSelect('rahim.ahmed@gmail.com', 'Rahim Ahmed', false)}
+                  className="p-2.5 rounded-xl bg-stone-100 hover:bg-orange-50 border border-stone-200 hover:border-orange-200 text-left transition-colors group"
+                >
+                  <div className="flex items-center gap-1.5 mb-1 text-stone-800 group-hover:text-[#ea580c] font-bold text-xs">
+                    <User className="w-3.5 h-3.5 text-stone-500 group-hover:text-[#ea580c]" />
+                    <span>Guest Account</span>
+                  </div>
+                  <p className="text-[10px] text-stone-500 font-mono truncate">rahim.ahmed@gmail.com</p>
+                </button>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500">
+                <span>Fast 4-digit POS PIN Keypad:</span>
+                <Link href="/staff-login" className="text-[#ea580c] font-bold hover:underline">
+                  Open POS Keypad →
+                </Link>
+              </div>
             </div>
+
           </div>
         </main>
       ) : (

@@ -8,8 +8,8 @@ interface StaffAuthContextType {
   currentStaff: StaffMember | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  loginWithPin: (pin: string) => Promise<{ success: boolean; error?: string; redirectUrl?: string }>;
-  loginWithEmail: (email: string, password?: string) => Promise<{ success: boolean; error?: string; redirectUrl?: string }>;
+  loginWithPin: (pin: string) => Promise<{ success: boolean; error?: string; redirectUrl?: string; staff?: StaffMember }>;
+  loginWithEmail: (email: string, password?: string) => Promise<{ success: boolean; error?: string; redirectUrl?: string; staff?: StaffMember }>;
   quickLoginAs: (role: StaffRole) => Promise<boolean>;
   logout: () => void;
   canAccess: (allowedRoles: string[]) => boolean;
@@ -102,7 +102,7 @@ export function StaffAuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const loginWithEmail = async (email: string, password?: string): Promise<{ success: boolean; error?: string; redirectUrl?: string }> => {
+  const loginWithEmail = async (email: string, password?: string): Promise<{ success: boolean; error?: string; redirectUrl?: string; staff?: StaffMember }> => {
     try {
       const res = await fetch('/api/staff/login', {
         method: 'POST',
@@ -113,21 +113,34 @@ export function StaffAuthProvider({ children }: { children: React.ReactNode }) {
       const data = await res.json();
       if (res.ok && data.success && data.staff) {
         saveSession(data.staff, data.token);
-        return { success: true, redirectUrl: data.redirectUrl || getRedirectForRole(data.staff.role) };
+        return { success: true, redirectUrl: data.redirectUrl || getRedirectForRole(data.staff.role), staff: data.staff };
       }
 
-      const localMatch = INITIAL_STAFF.find(s => s.email?.toLowerCase() === email.trim().toLowerCase());
+      const clean = email.trim().toLowerCase();
+      let localMatch = INITIAL_STAFF.find(s => s.email?.toLowerCase() === clean);
+      if (!localMatch) {
+        if (clean === 'owner@flavoria.com') localMatch = INITIAL_STAFF.find(s => s.role === 'Owner / Admin');
+        else if (clean === 'finance@flavoria.com') localMatch = INITIAL_STAFF.find(s => s.role === 'Accountant');
+        else if (clean === 'orders@flavoria.com') localMatch = INITIAL_STAFF.find(s => s.role === 'Order Manager');
+      }
+
       if (localMatch) {
         saveSession(localMatch);
-        return { success: true, redirectUrl: getRedirectForRole(localMatch.role) };
+        return { success: true, redirectUrl: getRedirectForRole(localMatch.role), staff: localMatch };
       }
 
       return { success: false, error: data.error || 'Staff member not found.' };
     } catch {
-      const localMatch = INITIAL_STAFF.find(s => s.email?.toLowerCase() === email.trim().toLowerCase());
+      const clean = email.trim().toLowerCase();
+      let localMatch = INITIAL_STAFF.find(s => s.email?.toLowerCase() === clean);
+      if (!localMatch) {
+        if (clean === 'owner@flavoria.com') localMatch = INITIAL_STAFF.find(s => s.role === 'Owner / Admin');
+        else if (clean === 'finance@flavoria.com') localMatch = INITIAL_STAFF.find(s => s.role === 'Accountant');
+        else if (clean === 'orders@flavoria.com') localMatch = INITIAL_STAFF.find(s => s.role === 'Order Manager');
+      }
       if (localMatch) {
         saveSession(localMatch);
-        return { success: true, redirectUrl: getRedirectForRole(localMatch.role) };
+        return { success: true, redirectUrl: getRedirectForRole(localMatch.role), staff: localMatch };
       }
       return { success: false, error: 'Network error verifying credentials.' };
     }
