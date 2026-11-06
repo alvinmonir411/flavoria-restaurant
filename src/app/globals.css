@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --primary-orange: #ea580c;
+    --primary-hover: #c2410c;
+    --dark-green: #1a4231;
+    --dark-green-hover: #143326;
+    --bg-white: #ffffff;
+    --bg-warm-light: #fbf9f5;
+    --text-heading: #18181b;
+    --text-body: #52525b;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #ffffff;
+    color: #4b5563;
+    overflow-x: hidden;
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  }
+
+  h1, h2, h3, h4, .font-serif {
+    font-family: var(--font-serif), Georgia, serif;
+    letter-spacing: -0.02em;
+    color: #111827;
+  }
+}
+
+/* Calligraphy & Handwritten Script Accent */
+.font-script {
+  font-family: 'Brush Script MT', 'Segoe Script', 'Caveat', cursive, serif;
+  font-style: italic;
+  font-weight: 500;
+}
+
+/* Reference Image Color Classes */
+.text-brand-orange {
+  color: #ea580c;
+}
+
+.bg-brand-orange {
+  background-color: #ea580c;
+}
+
+.bg-brand-orange-hover:hover {
+  background-color: #c2410c;
+}
+
+.bg-brand-green {
+  background-color: #1a4231;
+}
+
+.bg-brand-green-hover:hover {
+  background-color: #122b20;
+}
+
+/* Buttons from Reference Image */
+.btn-primary-orange {
+  background-color: #ea580c;
+  color: #ffffff;
+  font-weight: 600;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.3);
+}
+
+.btn-primary-orange:hover {
+  background-color: #c2410c;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(234, 88, 12, 0.4);
+}
+
+.btn-outline-orange {
+  border: 1.5px solid #ea580c;
+  color: #ea580c;
+  background-color: #ffffff;
+  font-weight: 600;
+  transition: all 0.25s ease;
+}
+
+.btn-outline-orange:hover {
+  background-color: #ea580c;
+  color: #ffffff;
+}
+
+/* Soft Shadows */
+.card-shadow {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.card-shadow-hover:hover {
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.09), 0 2px 6px rgba(0, 0, 0, 0.04);
+  transform: translateY(-3px);
+}
