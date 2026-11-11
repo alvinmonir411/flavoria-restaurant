@@ -19,19 +19,42 @@ const StaffAuthContext = createContext<StaffAuthContextType | undefined>(undefin
 
 const STORAGE_KEY = 'flavoria_staff_session';
 
+function normalizeStoredRole(rawRole?: string): StaffRole | null {
+  const r = (rawRole || '').trim().toLowerCase();
+  if (r === 'admin' || r === 'owner / admin' || r === 'owner') return 'Admin';
+  if (r === 'manager' || r === 'restaurant manager' || r === 'floor manager') return 'Manager';
+  return null;
+}
+
+function findLocalStaffByEmail(email: string): StaffMember | undefined {
+  const clean = email.trim().toLowerCase();
+  const exact = INITIAL_STAFF.find(s => s.email?.toLowerCase() === clean);
+  if (exact) return exact;
+  if (clean === 'owner@flavoria.com') {
+    return INITIAL_STAFF.find(s => s.role === 'Admin');
+  }
+  return undefined;
+}
+
 export function StaffAuthProvider({ children }: { children: React.ReactNode }) {
   const [currentStaff, setCurrentStaff] = useState<StaffMember | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load persisted session on mount
+  // Load persisted session on mount, normalizing legacy role labels and clearing removed roles
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.id) {
-          setCurrentStaff(parsed);
+        const validRole = parsed?.id ? normalizeStoredRole(parsed.role) : null;
+        if (parsed && parsed.id && validRole) {
+          const normalizedStaff: StaffMember = { ...parsed, role: validRole };
+          setCurrentStaff(normalizedStaff);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizedStaff));
           document.cookie = `flv_st_token=flv_st_${parsed.id}_active; path=/; max-age=86400; SameSite=Lax`;
+        } else {
+          localStorage.removeItem(STORAGE_KEY);
+          document.cookie = 'flv_st_token=; path=/; max-age=0; SameSite=Lax';
         }
       }
     } catch (e) {
@@ -52,24 +75,9 @@ export function StaffAuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const getRedirectForRole = (role: string) => {
-    const roleLower = role.toLowerCase();
-    if (
-      roleLower.includes('chef') ||
-      roleLower.includes('kitchen') ||
-      roleLower.includes('cook') ||
-      roleLower.includes('pastry') ||
-      roleLower.includes('bartender') ||
-      roleLower.includes('sommelier')
-    ) {
-      return '/kitchen';
-    } else if (roleLower.includes('driver') || roleLower.includes('delivery')) {
-      return '/driver';
-    }
-    return '/management';
-  };
+  const getRedirectForRole = () => '/management';
 
-  const loginWithPin = async (pin: string): Promise<{ success: boolean; error?: string; redirectUrl?: string }> => {
+  const loginWithPin = async (pin: string): Promise<{ success: boolean; error?: string; redirectUrl?: string; staff?: StaffMember }> => {
     try {
       const res = await fetch('/api/staff/login', {
         method: 'POST',
@@ -80,23 +88,21 @@ export function StaffAuthProvider({ children }: { children: React.ReactNode }) {
       const data = await res.json();
       if (res.ok && data.success && data.staff) {
         saveSession(data.staff, data.token);
-        return { success: true, redirectUrl: data.redirectUrl || getRedirectForRole(data.staff.role) };
+        return { success: true, redirectUrl: data.redirectUrl || getRedirectForRole(), staff: data.staff };
       }
 
-      // Local fallback if API fails
       const localMatch = INITIAL_STAFF.find(s => s.pinCode === pin.trim());
       if (localMatch) {
         saveSession(localMatch);
-        return { success: true, redirectUrl: getRedirectForRole(localMatch.role) };
+        return { success: true, redirectUrl: getRedirectForRole(), staff: localMatch };
       }
 
-      return { success: false, error: data.error || 'Invalid staff PIN. Please try again.' };
+      return { success: false, error: data.error || 'Invalid PIN. Please use Admin (1111) or Manager (2222).' };
     } catch {
-      // Local fallback on network failure
       const localMatch = INITIAL_STAFF.find(s => s.pinCode === pin.trim());
       if (localMatch) {
         saveSession(localMatch);
-        return { success: true, redirectUrl: getRedirectForRole(localMatch.role) };
+        return { success: true, redirectUrl: getRedirectForRole(), staff: localMatch };
       }
       return { success: false, error: 'Network error verifying credentials.' };
     }
@@ -113,34 +119,21 @@ export function StaffAuthProvider({ children }: { children: React.ReactNode }) {
       const data = await res.json();
       if (res.ok && data.success && data.staff) {
         saveSession(data.staff, data.token);
-        return { success: true, redirectUrl: data.redirectUrl || getRedirectForRole(data.staff.role), staff: data.staff };
+        return { success: true, redirectUrl: data.redirectUrl || getRedirectForRole(), staff: data.staff };
       }
 
-      const clean = email.trim().toLowerCase();
-      let localMatch = INITIAL_STAFF.find(s => s.email?.toLowerCase() === clean);
-      if (!localMatch) {
-        if (clean === 'owner@flavoria.com') localMatch = INITIAL_STAFF.find(s => s.role === 'Owner / Admin');
-        else if (clean === 'finance@flavoria.com') localMatch = INITIAL_STAFF.find(s => s.role === 'Accountant');
-        else if (clean === 'orders@flavoria.com') localMatch = INITIAL_STAFF.find(s => s.role === 'Order Manager');
-      }
-
+      const localMatch = findLocalStaffByEmail(email);
       if (localMatch) {
         saveSession(localMatch);
-        return { success: true, redirectUrl: getRedirectForRole(localMatch.role), staff: localMatch };
+        return { success: true, redirectUrl: getRedirectForRole(), staff: localMatch };
       }
 
-      return { success: false, error: data.error || 'Staff member not found.' };
+      return { success: false, error: data.error || 'Account not found.' };
     } catch {
-      const clean = email.trim().toLowerCase();
-      let localMatch = INITIAL_STAFF.find(s => s.email?.toLowerCase() === clean);
-      if (!localMatch) {
-        if (clean === 'owner@flavoria.com') localMatch = INITIAL_STAFF.find(s => s.role === 'Owner / Admin');
-        else if (clean === 'finance@flavoria.com') localMatch = INITIAL_STAFF.find(s => s.role === 'Accountant');
-        else if (clean === 'orders@flavoria.com') localMatch = INITIAL_STAFF.find(s => s.role === 'Order Manager');
-      }
+      const localMatch = findLocalStaffByEmail(email);
       if (localMatch) {
         saveSession(localMatch);
-        return { success: true, redirectUrl: getRedirectForRole(localMatch.role), staff: localMatch };
+        return { success: true, redirectUrl: getRedirectForRole(), staff: localMatch };
       }
       return { success: false, error: 'Network error verifying credentials.' };
     }
@@ -164,7 +157,7 @@ export function StaffAuthProvider({ children }: { children: React.ReactNode }) {
 
   const canAccess = (allowedRoles: string[]): boolean => {
     if (!currentStaff) return false;
-    if (currentStaff.role === 'Owner / Admin') return true; // Super admin always has access
+    if (currentStaff.role === 'Admin') return true;
     return allowedRoles.some(
       r => r.toLowerCase() === currentStaff.role.toLowerCase() ||
            currentStaff.permissions?.includes(r.toLowerCase()) ||

@@ -77,14 +77,7 @@ export default function ManagementPage() {
   return (
     <StaffAuthGuard
       portalName="Enterprise Operations & Admin Dashboard"
-      allowedRoles={[
-        'Owner / Admin',
-        'Restaurant Manager',
-        'Order Manager',
-        'Inventory Manager',
-        'Accountant',
-        'Floor Manager'
-      ]}
+      allowedRoles={['Admin', 'Manager']}
     >
       <ManagementContent />
     </StaffAuthGuard>

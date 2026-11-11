@@ -620,16 +620,8 @@ export const INITIAL_WAITLIST: WaitlistEntry[] = [
 ];
 
 export const INITIAL_STAFF: StaffMember[] = [
-  { id: 'st-admin', name: 'Alvin Monir', email: 'admin@flavoria.com', pinCode: '1111', role: 'Owner / Admin', shift: 'Morning', isClockedIn: true, hoursWorkedToday: 4.0, phone: '+880 1711-000001', station: 'Floor', permissions: ['all'] },
-  { id: 'st-manager', name: 'Rahim Chowdhury', email: 'manager@flavoria.com', pinCode: '2222', role: 'Restaurant Manager', shift: 'Morning', isClockedIn: true, hoursWorkedToday: 6.0, phone: '+880 1711-000002', station: 'Floor', permissions: ['management', 'kds', 'driver', 'inventory', 'reports'] },
-  { id: 'st-chef', name: 'Chef Jean-Luc Fontaine', email: 'chef@flavoria.com', pinCode: '3333', role: 'Executive Chef', shift: 'Evening', isClockedIn: true, hoursWorkedToday: 6.5, phone: '+880 1711-000003', station: 'Grill', permissions: ['kds', 'inventory', 'recipes'] },
-  { id: 'st-cook', name: 'Elena Rostova', email: 'kitchen@flavoria.com', pinCode: '4444', role: 'Kitchen Staff', shift: 'Evening', isClockedIn: true, hoursWorkedToday: 5.0, phone: '+880 1711-000004', station: 'Pastry', permissions: ['kds'] },
-  { id: 'st-driver', name: 'Tariqul Islam', email: 'driver@flavoria.com', pinCode: '5555', role: 'Delivery Staff', shift: 'Evening', isClockedIn: true, hoursWorkedToday: 4.5, phone: '+880 1812-345678', station: 'Delivery', permissions: ['driver'] },
-  { id: 'st-cashier', name: 'Fatima Begum', email: 'cashier@flavoria.com', pinCode: '6666', role: 'Order Manager', shift: 'Morning', isClockedIn: true, hoursWorkedToday: 5.5, phone: '+880 1912-987654', station: 'Floor', permissions: ['management', 'orders'] },
-  { id: 'st-inv', name: 'Kamal Hossain', email: 'inventory@flavoria.com', pinCode: '7777', role: 'Inventory Manager', shift: 'Morning', isClockedIn: true, hoursWorkedToday: 7.0, phone: '+880 1711-998877', station: 'Floor', permissions: ['inventory', 'suppliers'] },
-  { id: 'st-acc', name: 'Nasrin Sultana', email: 'accounts@flavoria.com', pinCode: '8888', role: 'Accountant', shift: 'Morning', isClockedIn: true, hoursWorkedToday: 8.0, phone: '+880 1611-223344', station: 'Floor', permissions: ['reports', 'expenses'] },
-  { id: 'st-somm', name: 'Sophia Laurent', email: 'sommelier@flavoria.com', pinCode: '1010', role: 'Head Sommelier', shift: 'Evening', isClockedIn: true, hoursWorkedToday: 5.5, phone: '+1 (555) 010-6632', station: 'Bar', permissions: ['kds'] },
-  { id: 'st-bar', name: 'Lucas Meyer', email: 'bar@flavoria.com', pinCode: '2020', role: 'Lead Bartender', shift: 'Evening', isClockedIn: true, hoursWorkedToday: 4.5, phone: '+1 (555) 010-3320', station: 'Bar', permissions: ['kds'] }
+  { id: 'st-admin', name: 'Alvin Monir', email: 'admin@flavoria.com', pinCode: '1111', role: 'Admin', shift: 'Morning', isClockedIn: true, hoursWorkedToday: 4.0, phone: '+880 1711-000001', station: 'Floor', permissions: ['all'] },
+  { id: 'st-manager', name: 'Rahim Chowdhury', email: 'manager@flavoria.com', pinCode: '2222', role: 'Manager', shift: 'Morning', isClockedIn: true, hoursWorkedToday: 6.0, phone: '+880 1711-000002', station: 'Floor', permissions: ['management', 'kds', 'driver', 'inventory', 'reports'] }
 ];
 
 export const INITIAL_GUEST_PROFILES: GuestProfile[] = [

@@ -4,7 +4,7 @@ import { verifyStaffAuth } from '@/lib/auth-server';
 
 export async function GET(request: Request) {
   try {
-    const auth = await verifyStaffAuth(request, ['Owner / Admin', 'Restaurant Manager', 'Accountant']);
+    const auth = await verifyStaffAuth(request, ['Admin', 'Manager']);
     if (!auth.authorized) {
       return NextResponse.json({ error: auth.error }, { status: auth.statusCode || 401 });
     }
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const auth = await verifyStaffAuth(request, ['Owner / Admin', 'Restaurant Manager', 'Accountant']);
+    const auth = await verifyStaffAuth(request, ['Admin', 'Manager']);
     if (!auth.authorized) {
       return NextResponse.json({ error: auth.error }, { status: auth.statusCode || 401 });
     }

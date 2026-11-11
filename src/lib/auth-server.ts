@@ -65,7 +65,7 @@ export async function verifyStaffAuth(
   if (allowedRoles && allowedRoles.length > 0) {
     const hasRole = allowedRoles.some(
       r => r.toLowerCase() === matched.role.toLowerCase() ||
-           matched.role === 'Owner / Admin' ||
+           matched.role === 'Admin' ||
            matched.permissions?.includes('all')
     );
 

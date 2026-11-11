@@ -150,7 +150,7 @@ export default function StaffAuthGuard({ children, allowedRoles, portalName }: S
           </Link>
 
           <h2 className="text-xl font-bold text-stone-900 tracking-tight">
-            Staff & Management Login
+            Admin &amp; Manager Login
           </h2>
           <p className="text-xs text-stone-500 mt-1">
             Access restricted to authorized personnel for <strong className="text-stone-800">{portalName}</strong>
@@ -275,7 +275,7 @@ export default function StaffAuthGuard({ children, allowedRoles, portalName }: S
               /* Mode 2: Clean POS / KDS Passcode Keypad */
               <form onSubmit={handlePinSubmit} className="space-y-5">
                 <div className="text-center">
-                  <span className="text-xs text-stone-500 font-medium">Enter your 4-digit staff passcode</span>
+                  <span className="text-xs text-stone-500 font-medium">Enter your 4-digit access passcode</span>
                   <div className="flex justify-center items-center gap-3 mt-3">
                     {[0, 1, 2, 3].map((idx) => {
                       const filled = pin.length > idx;

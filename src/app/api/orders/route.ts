@@ -50,16 +50,7 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const auth = await verifyStaffAuth(req, [
-      'Owner / Admin', 
-      'Restaurant Manager', 
-      'Executive Chef', 
-      'Sous Chef', 
-      'Kitchen Staff', 
-      'Delivery Staff', 
-      'Delivery Driver', 
-      'Order Manager'
-    ]);
+    const auth = await verifyStaffAuth(req, ['Admin', 'Manager']);
     if (!auth.authorized) {
       return NextResponse.json({ error: auth.error }, { status: auth.statusCode || 401 });
     }

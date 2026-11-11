@@ -14,7 +14,7 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
-    const auth = await verifyStaffAuth(request, ['Owner / Admin']);
+    const auth = await verifyStaffAuth(request, ['Admin']);
     if (!auth.authorized) {
       return NextResponse.json({ error: auth.error }, { status: auth.statusCode || 401 });
     }

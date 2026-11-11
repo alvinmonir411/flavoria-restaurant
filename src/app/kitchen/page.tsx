@@ -27,7 +27,7 @@ export default function KitchenPage() {
   return (
     <StaffAuthGuard
       portalName="Kitchen Display System (KDS 2.0)"
-      allowedRoles={['Owner / Admin', 'Restaurant Manager', 'Executive Chef', 'Sous Chef', 'Kitchen Staff']}
+      allowedRoles={['Admin', 'Manager']}
     >
       <KitchenContent />
     </StaffAuthGuard>

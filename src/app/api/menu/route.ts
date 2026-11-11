@@ -14,7 +14,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const auth = await verifyStaffAuth(req, ['Owner / Admin', 'Restaurant Manager', 'Executive Chef']);
+    const auth = await verifyStaffAuth(req, ['Admin', 'Manager']);
     if (!auth.authorized) {
       return NextResponse.json({ error: auth.error }, { status: auth.statusCode || 401 });
     }
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   try {
-    const auth = await verifyStaffAuth(req, ['Owner / Admin', 'Restaurant Manager', 'Executive Chef']);
+    const auth = await verifyStaffAuth(req, ['Admin', 'Manager']);
     if (!auth.authorized) {
       return NextResponse.json({ error: auth.error }, { status: auth.statusCode || 401 });
     }
@@ -78,7 +78,7 @@ export async function PUT(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    const auth = await verifyStaffAuth(req, ['Owner / Admin', 'Restaurant Manager']);
+    const auth = await verifyStaffAuth(req, ['Admin', 'Manager']);
     if (!auth.authorized) {
       return NextResponse.json({ error: auth.error }, { status: auth.statusCode || 401 });
     }

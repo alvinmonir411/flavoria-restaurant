@@ -30,8 +30,6 @@ import {
   ChefHat,
   Truck,
   ClipboardList,
-  BarChart3,
-  Boxes,
   ChevronDown,
   LogOut
 } from 'lucide-react';
@@ -51,10 +49,10 @@ export default function Navbar() {
   const [callType, setCallType] = useState<'assistance' | 'bill' | 'water'>('assistance');
   const [callSent, setCallSent] = useState(false);
 
-  // Dynamic Role & Icon Mapping based on who is logged in
+  // Dynamic Role & Icon Mapping (Strictly Admin and Manager for Staff)
   const getRoleInfo = (role?: string) => {
     switch (role) {
-      case 'Owner / Admin':
+      case 'Admin':
         return {
           label: 'Admin',
           icon: Crown,
@@ -63,8 +61,7 @@ export default function Navbar() {
           bg: 'bg-amber-50',
           border: 'border-amber-200'
         };
-      case 'Restaurant Manager':
-      case 'Floor Manager':
+      case 'Manager':
         return {
           label: 'Manager',
           icon: ClipboardList,
@@ -73,48 +70,9 @@ export default function Navbar() {
           bg: 'bg-blue-50',
           border: 'border-blue-200'
         };
-      case 'Executive Chef':
-      case 'Sous Chef':
-      case 'Kitchen Staff':
-        return {
-          label: 'Kitchen KDS',
-          icon: ChefHat,
-          href: '/kitchen',
-          color: 'text-emerald-600',
-          bg: 'bg-emerald-50',
-          border: 'border-emerald-200'
-        };
-      case 'Delivery Staff':
-      case 'Delivery Driver':
-        return {
-          label: 'Driver',
-          icon: Truck,
-          href: '/driver',
-          color: 'text-indigo-600',
-          bg: 'bg-indigo-50',
-          border: 'border-indigo-200'
-        };
-      case 'Accountant':
-        return {
-          label: 'Accounts',
-          icon: BarChart3,
-          href: '/management',
-          color: 'text-teal-600',
-          bg: 'bg-teal-50',
-          border: 'border-teal-200'
-        };
-      case 'Inventory Manager':
-        return {
-          label: 'Inventory',
-          icon: Boxes,
-          href: '/management',
-          color: 'text-purple-600',
-          bg: 'bg-purple-50',
-          border: 'border-purple-200'
-        };
       default:
         return {
-          label: 'Staff Portal',
+          label: 'Admin / Manager',
           icon: ShieldCheck,
           href: '/staff-login',
           color: 'text-[#ea580c]',

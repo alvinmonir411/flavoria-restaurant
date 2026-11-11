@@ -10,6 +10,7 @@ import {
   InventoryItem,
   WaitlistEntry,
   StaffMember,
+  StaffRole,
   GuestProfile,
   PromoCode,
   GiftCard,
@@ -1080,6 +1081,13 @@ export async function updateWaitlistStatus(id: string, status: WaitlistEntry['st
 // ========================
 // STAFF METHODS
 // ========================
+function normalizeStaffRole(rawRole: unknown): StaffRole | null {
+  const r = String(rawRole || '').trim().toLowerCase();
+  if (r === 'admin' || r === 'owner / admin' || r === 'owner') return 'Admin';
+  if (r === 'manager' || r === 'restaurant manager' || r === 'floor manager') return 'Manager';
+  return null;
+}
+
 export async function getStaff(): Promise<StaffMember[]> {
   const sql = getNeonSql();
   if (sql) {
@@ -1087,19 +1095,26 @@ export async function getStaff(): Promise<StaffMember[]> {
       await ensureNeonSchema();
       const rows = await sql`SELECT * FROM staff_members ORDER BY name ASC`;
       if (rows.length > 0) {
-        return rows.map((r: Record<string, unknown>) => ({
-          id: String(r.id),
-          name: String(r.name),
-          email: r.email ? String(r.email) : undefined,
-          pinCode: r.pin_code ? String(r.pin_code) : '1234',
-          role: r.role as StaffMember['role'],
-          shift: r.shift as StaffMember['shift'],
-          isClockedIn: Boolean(r.is_clocked_in),
-          hoursWorkedToday: Number(r.hours_worked_today),
-          phone: String(r.phone),
-          station: r.station as StaffMember['station'],
-          permissions: Array.isArray(r.permissions) ? r.permissions : []
-        }));
+        const filtered = rows
+          .map((r: Record<string, unknown>) => {
+            const role = normalizeStaffRole(r.role);
+            if (!role) return null;
+            return {
+              id: String(r.id),
+              name: String(r.name),
+              email: r.email ? String(r.email) : undefined,
+              pinCode: r.pin_code ? String(r.pin_code) : '1234',
+              role,
+              shift: r.shift as StaffMember['shift'],
+              isClockedIn: Boolean(r.is_clocked_in),
+              hoursWorkedToday: Number(r.hours_worked_today),
+              phone: String(r.phone),
+              station: r.station as StaffMember['station'],
+              permissions: Array.isArray(r.permissions) ? r.permissions : []
+            } as StaffMember;
+          })
+          .filter((item): item is StaffMember => item !== null);
+        if (filtered.length > 0) return filtered;
       }
     } catch (e) {
       console.warn(e);

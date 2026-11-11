@@ -8,21 +8,8 @@ import { LayoutDashboard, ChefHat, Truck } from 'lucide-react';
 export default function StaffLoginPage() {
   return (
     <StaffAuthGuard
-      portalName="Staff & Management Access"
-      allowedRoles={[
-        'Owner / Admin',
-        'Restaurant Manager',
-        'Executive Chef',
-        'Sous Chef',
-        'Kitchen Staff',
-        'Delivery Staff',
-        'Delivery Driver',
-        'Order Manager',
-        'Inventory Manager',
-        'Accountant',
-        'Floor Manager',
-        'Server'
-      ]}
+      portalName="Admin & Manager Access"
+      allowedRoles={['Admin', 'Manager']}
     >
       <div className="min-h-screen bg-[#FAF8F5] p-6 sm:p-12 flex flex-col items-center justify-center">
         <div className="max-w-xl w-full bg-white rounded-3xl border border-stone-200 shadow-xl p-8 text-center">

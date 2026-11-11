@@ -265,22 +265,8 @@ export interface CustomerReview {
   staffResponse?: string;
 }
 
-// Staff & Shifts
-export type StaffRole = 
-  | 'Owner / Admin' 
-  | 'Restaurant Manager' 
-  | 'Executive Chef' 
-  | 'Sous Chef' 
-  | 'Kitchen Staff' 
-  | 'Delivery Staff' 
-  | 'Delivery Driver' 
-  | 'Order Manager' 
-  | 'Inventory Manager' 
-  | 'Accountant' 
-  | 'Floor Manager' 
-  | 'Server' 
-  | 'Head Sommelier' 
-  | 'Lead Bartender';
+// Staff & Shifts (Strictly Admin and Manager roles)
+export type StaffRole = 'Admin' | 'Manager';
 
 export interface StaffMember {
   id: string;

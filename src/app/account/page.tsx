@@ -28,8 +28,6 @@ import {
   LogIn,
   Crown,
   ClipboardList,
-  ChefHat,
-  Truck,
   Eye,
   EyeOff,
   AlertCircle
@@ -153,7 +151,7 @@ export default function CustomerAccountPage() {
             if (normEmail.includes('alvin')) {
               return true; // Demo VIP account view
             }
-            const ordCustEmail = ((o as any).customerEmail || '').toLowerCase();
+            const ordCustEmail = ((o as Order & { customerEmail?: string }).customerEmail || '').toLowerCase();
             const ordCustName = (o.customerName || '').toLowerCase();
             const ordPhone = o.customerPhone || '';
 
@@ -177,7 +175,7 @@ export default function CustomerAccountPage() {
             if (normEmail.includes('alvin')) {
               return true;
             }
-            const resEmail = ((r.email || (r as any).guestEmail || '')).toLowerCase();
+            const resEmail = ((r.email || (r as Reservation & { guestEmail?: string }).guestEmail || '')).toLowerCase();
             const resName = (r.guestName || '').toLowerCase();
             return resEmail === normEmail || resName.includes(normName);
           });
@@ -279,8 +277,9 @@ export default function CustomerAccountPage() {
         type: 'success', 
         text: `✓ Welcome to your personal dashboard!` 
       });
-    } catch (err: any) {
-      setAuthStatusMessage({ type: 'error', text: err.message || 'Login failed. Please try again.' });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Login failed. Please try again.';
+      setAuthStatusMessage({ type: 'error', text: msg });
     } finally {
       setIsAuthenticating(false);
     }
@@ -332,7 +331,7 @@ export default function CustomerAccountPage() {
               Flavoria Unified Portal
             </h1>
             <p className="text-xs text-stone-500 mb-6 font-light max-w-md mx-auto">
-              Sign in with your email &amp; password. The system automatically identifies your role (Admin, Manager, Chef, Kitchen, Driver, or Customer) and opens your workstation.
+              Sign in with your email &amp; password. The system automatically identifies your role (Admin, Manager, or Customer) and opens your workstation.
             </p>
 
             {authStatusMessage && (
@@ -422,7 +421,7 @@ export default function CustomerAccountPage() {
                 ⚡ Instant 1-Click Role Login Demo
               </p>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => handleQuickRoleSelect('admin@flavoria.com', 'Alvin Monir', true)}
@@ -430,7 +429,7 @@ export default function CustomerAccountPage() {
                 >
                   <div className="flex items-center gap-1.5 mb-1 text-amber-700 font-bold text-xs">
                     <Crown className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Owner / Admin</span>
+                    <span>Admin</span>
                   </div>
                   <p className="text-[10px] text-stone-500 font-mono truncate">admin@flavoria.com</p>
                 </button>
@@ -442,33 +441,9 @@ export default function CustomerAccountPage() {
                 >
                   <div className="flex items-center gap-1.5 mb-1 text-blue-700 font-bold text-xs">
                     <ClipboardList className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Restaurant Manager</span>
+                    <span>Manager</span>
                   </div>
                   <p className="text-[10px] text-stone-500 font-mono truncate">manager@flavoria.com</p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleQuickRoleSelect('chef@flavoria.com', 'Chef Jean-Luc', true)}
-                  className="p-2.5 rounded-xl bg-emerald-50/70 hover:bg-emerald-100/70 border border-emerald-200 text-left transition-colors group"
-                >
-                  <div className="flex items-center gap-1.5 mb-1 text-emerald-700 font-bold text-xs">
-                    <ChefHat className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Executive Chef</span>
-                  </div>
-                  <p className="text-[10px] text-stone-500 font-mono truncate">chef@flavoria.com</p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleQuickRoleSelect('driver@flavoria.com', 'Tariqul Islam', true)}
-                  className="p-2.5 rounded-xl bg-indigo-50/70 hover:bg-indigo-100/70 border border-indigo-200 text-left transition-colors group"
-                >
-                  <div className="flex items-center gap-1.5 mb-1 text-indigo-700 font-bold text-xs">
-                    <Truck className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Delivery Driver</span>
-                  </div>
-                  <p className="text-[10px] text-stone-500 font-mono truncate">driver@flavoria.com</p>
                 </button>
 
                 <button
@@ -478,21 +453,9 @@ export default function CustomerAccountPage() {
                 >
                   <div className="flex items-center gap-1.5 mb-1 text-stone-800 group-hover:text-[#ea580c] font-bold text-xs">
                     <User className="w-3.5 h-3.5 text-stone-500 group-hover:text-[#ea580c]" />
-                    <span>VIP Customer</span>
+                    <span>Customer</span>
                   </div>
                   <p className="text-[10px] text-stone-500 font-mono truncate">alvin@example.com</p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleQuickRoleSelect('rahim.ahmed@gmail.com', 'Rahim Ahmed', false)}
-                  className="p-2.5 rounded-xl bg-stone-100 hover:bg-orange-50 border border-stone-200 hover:border-orange-200 text-left transition-colors group"
-                >
-                  <div className="flex items-center gap-1.5 mb-1 text-stone-800 group-hover:text-[#ea580c] font-bold text-xs">
-                    <User className="w-3.5 h-3.5 text-stone-500 group-hover:text-[#ea580c]" />
-                    <span>Guest Account</span>
-                  </div>
-                  <p className="text-[10px] text-stone-500 font-mono truncate">rahim.ahmed@gmail.com</p>
                 </button>
               </div>
 

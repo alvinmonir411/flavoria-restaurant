@@ -13,14 +13,8 @@ export async function POST(req: Request) {
     if (email) {
       const cleanEmail = email.trim().toLowerCase();
       matchedStaff = staffList.find(s => s.email?.toLowerCase() === cleanEmail);
-      if (!matchedStaff) {
-        if (cleanEmail === 'owner@flavoria.com') {
-          matchedStaff = staffList.find(s => s.role === 'Owner / Admin');
-        } else if (cleanEmail === 'finance@flavoria.com') {
-          matchedStaff = staffList.find(s => s.role === 'Accountant');
-        } else if (cleanEmail === 'orders@flavoria.com') {
-          matchedStaff = staffList.find(s => s.role === 'Order Manager');
-        }
+      if (!matchedStaff && cleanEmail === 'owner@flavoria.com') {
+        matchedStaff = staffList.find(s => s.role === 'Admin');
       }
     } else if (pin) {
       matchedStaff = staffList.find(s => s.pinCode === pin.trim());
@@ -30,29 +24,12 @@ export async function POST(req: Request) {
 
     if (!matchedStaff) {
       return NextResponse.json(
-        { success: false, error: 'Staff account not found. Please verify your email or credentials.' },
+        { success: false, error: 'Account not found. Only Admin and Manager staff accounts exist.' },
         { status: 401 }
       );
     }
 
-    // Backend role destination routing
-    const roleLower = matchedStaff.role.toLowerCase();
-    let redirectUrl = '/management';
-
-    if (
-      roleLower.includes('chef') ||
-      roleLower.includes('kitchen') ||
-      roleLower.includes('cook') ||
-      roleLower.includes('pastry') ||
-      roleLower.includes('bartender') ||
-      roleLower.includes('sommelier')
-    ) {
-      redirectUrl = '/kitchen';
-    } else if (roleLower.includes('driver') || roleLower.includes('delivery')) {
-      redirectUrl = '/driver';
-    } else {
-      redirectUrl = '/management';
-    }
+    const redirectUrl = '/management';
 
     // Generate authenticated session token
     const token = `flv_st_${matchedStaff.id}_${Date.now()}`;

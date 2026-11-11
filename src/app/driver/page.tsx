@@ -22,8 +22,8 @@ import { useCurrency } from '@/context/CurrencyContext';
 export default function DriverPortalPage() {
   return (
     <StaffAuthGuard
-      portalName="Delivery Staff Logistics Portal"
-      allowedRoles={['Owner / Admin', 'Restaurant Manager', 'Delivery Staff', 'Delivery Driver']}
+      portalName="Delivery Logistics Portal"
+      allowedRoles={['Admin', 'Manager']}
     >
       <DriverPortalContent />
     </StaffAuthGuard>
