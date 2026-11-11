@@ -240,13 +240,6 @@ export default function Navbar() {
             <Link href="/reservation" className="hover:text-[#ea580c] transition-colors">
               RESERVATION
             </Link>
-            <Link href="/loyalty" className="hover:text-[#ea580c] transition-colors flex items-center gap-1">
-              <Crown className="w-3.5 h-3.5 text-amber-500" />
-              <span>VIP CLUB</span>
-            </Link>
-            <Link href="/events" className="hover:text-[#ea580c] transition-colors">
-              EVENTS
-            </Link>
             <Link href="/contact" className="hover:text-[#ea580c] transition-colors">
               CONTACT
             </Link>
@@ -422,7 +415,7 @@ export default function Navbar() {
                               className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-stone-50 text-xs font-medium text-stone-600 hover:text-stone-900 transition-colors"
                             >
                               <User className="w-3.5 h-3.5 text-stone-400" />
-                              <span>Customer Account & Loyalty</span>
+                              <span>Customer Account & Orders</span>
                             </Link>
                           </div>
                         </>
@@ -497,7 +490,7 @@ export default function Navbar() {
                     <>
                       <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200/80 mb-2">
                         <p className="text-xs font-bold text-stone-900 mb-1">Customer Account</p>
-                        <p className="text-[10px] text-stone-500 mb-3">Orders, reservations & VIP loyalty club.</p>
+                        <p className="text-[10px] text-stone-500 mb-3">Orders, reservations & saved preferences.</p>
                         <Link
                           href="/account"
                           onClick={() => setAccountMenuOpen(false)}
@@ -586,21 +579,6 @@ export default function Navbar() {
               className="py-2 px-3 rounded-lg text-stone-800 font-medium hover:bg-stone-50"
             >
               TABLE RESERVATION
-            </Link>
-            <Link
-              href="/loyalty"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 px-3 rounded-lg text-stone-800 font-medium hover:bg-stone-50 flex items-center gap-2"
-            >
-              <Crown className="w-4 h-4 text-amber-500" />
-              <span>VIP LOYALTY CLUB & GIFTS</span>
-            </Link>
-            <Link
-              href="/events"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 px-3 rounded-lg text-stone-800 font-medium hover:bg-stone-50"
-            >
-              PRIVATE EVENTS & BANQUETS
             </Link>
             <Link
               href="/about"

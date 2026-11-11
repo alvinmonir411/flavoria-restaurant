@@ -1,8 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { StaffMember, StaffRole } from '@/types';
-import { INITIAL_STAFF } from '@/lib/seed-data';
 
 interface StaffAuthContextType {
   currentStaff: StaffMember | null;
@@ -18,164 +17,159 @@ interface StaffAuthContextType {
 const StaffAuthContext = createContext<StaffAuthContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'flavoria_staff_session';
+const TOKEN_STORAGE_KEY = 'flavoria_staff_token';
 
-function normalizeStoredRole(rawRole?: string): StaffRole | null {
-  const r = (rawRole || '').trim().toLowerCase();
-  if (r === 'admin' || r === 'owner / admin' || r === 'owner') return 'Admin';
-  if (r === 'manager' || r === 'restaurant manager' || r === 'floor manager') return 'Manager';
-  return null;
+export function getStaffRequestHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const headers: Record<string, string> = { ...extra };
+  if (typeof window !== 'undefined') {
+    try {
+      const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+      if (token) headers['x-staff-token'] = token;
+    } catch {
+      // ignore storage errors
+    }
+  }
+  return headers;
 }
 
-function findLocalStaffByEmail(email: string): StaffMember | undefined {
-  const clean = email.trim().toLowerCase();
-  const exact = INITIAL_STAFF.find(s => s.email?.toLowerCase() === clean);
-  if (exact) return exact;
-  if (clean === 'owner@flavoria.com') {
-    return INITIAL_STAFF.find(s => s.role === 'Admin');
-  }
-  return undefined;
+function normalizeStoredRole(rawRole?: string): StaffRole | null {
+  if (!rawRole) return null;
+  const r = rawRole.toLowerCase();
+  if (r === 'admin') return 'Admin';
+  if (r === 'manager') return 'Manager';
+  return null;
 }
 
 export function StaffAuthProvider({ children }: { children: React.ReactNode }) {
   const [currentStaff, setCurrentStaff] = useState<StaffMember | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load persisted session on mount, normalizing legacy role labels and clearing removed roles
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        const validRole = parsed?.id ? normalizeStoredRole(parsed.role) : null;
-        if (parsed && parsed.id && validRole) {
-          const normalizedStaff: StaffMember = { ...parsed, role: validRole };
+        const parsed = JSON.parse(saved) as StaffMember;
+        const normalizedRole = normalizeStoredRole(parsed?.role);
+        if (normalizedRole) {
+          const normalizedStaff = { ...parsed, role: normalizedRole };
           setCurrentStaff(normalizedStaff);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizedStaff));
-          document.cookie = `flv_st_token=flv_st_${parsed.id}_active; path=/; max-age=86400; SameSite=Lax`;
         } else {
           localStorage.removeItem(STORAGE_KEY);
-          document.cookie = 'flv_st_token=; path=/; max-age=0; SameSite=Lax';
         }
       }
-    } catch (e) {
-      console.warn('Failed to parse saved staff session:', e);
+    } catch {
+      // ignore storage errors
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const saveSession = (staff: StaffMember, token?: string) => {
+  const persistStaff = (staff: StaffMember, token?: string) => {
     setCurrentStaff(staff);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(staff));
-      const authToken = token || `flv_st_${staff.id}_${Date.now()}`;
-      document.cookie = `flv_st_token=${authToken}; path=/; max-age=86400; SameSite=Lax`;
-    } catch (e) {
-      console.error(e);
+      if (token) {
+        localStorage.setItem(TOKEN_STORAGE_KEY, token);
+      }
+    } catch {
+      // ignore storage errors
     }
   };
 
   const getRedirectForRole = () => '/management';
 
-  const loginWithPin = async (pin: string): Promise<{ success: boolean; error?: string; redirectUrl?: string; staff?: StaffMember }> => {
+  const loginWithPin = async (
+    pin: string
+  ): Promise<{ success: boolean; error?: string; redirectUrl?: string; staff?: StaffMember }> => {
     try {
       const res = await fetch('/api/staff/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin })
+        body: JSON.stringify({ pin }),
       });
-
       const data = await res.json();
-      if (res.ok && data.success && data.staff) {
-        saveSession(data.staff, data.token);
-        return { success: true, redirectUrl: data.redirectUrl || getRedirectForRole(), staff: data.staff };
-      }
 
-      const localMatch = INITIAL_STAFF.find(s => s.pinCode === pin.trim());
-      if (localMatch) {
-        saveSession(localMatch);
-        return { success: true, redirectUrl: getRedirectForRole(), staff: localMatch };
+      if (res.ok && data.success && data.staff) {
+        persistStaff(data.staff, data.token);
+        return { success: true, redirectUrl: data.redirectUrl || getRedirectForRole(), staff: data.staff };
       }
 
       return { success: false, error: data.error || 'Invalid PIN. Please use Admin (1111) or Manager (2222).' };
     } catch {
-      const localMatch = INITIAL_STAFF.find(s => s.pinCode === pin.trim());
-      if (localMatch) {
-        saveSession(localMatch);
-        return { success: true, redirectUrl: getRedirectForRole(), staff: localMatch };
-      }
-      return { success: false, error: 'Network error verifying credentials.' };
+      return { success: false, error: 'Database authentication error. Please try again.' };
     }
   };
 
-  const loginWithEmail = async (email: string, password?: string): Promise<{ success: boolean; error?: string; redirectUrl?: string; staff?: StaffMember }> => {
+  const loginWithEmail = async (
+    email: string,
+    password?: string
+  ): Promise<{ success: boolean; error?: string; redirectUrl?: string; staff?: StaffMember }> => {
     try {
       const res = await fetch('/api/staff/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password }),
       });
-
       const data = await res.json();
+
       if (res.ok && data.success && data.staff) {
-        saveSession(data.staff, data.token);
+        persistStaff(data.staff, data.token);
         return { success: true, redirectUrl: data.redirectUrl || getRedirectForRole(), staff: data.staff };
       }
 
-      const localMatch = findLocalStaffByEmail(email);
-      if (localMatch) {
-        saveSession(localMatch);
-        return { success: true, redirectUrl: getRedirectForRole(), staff: localMatch };
-      }
-
-      return { success: false, error: data.error || 'Account not found.' };
+      return { success: false, error: data.error || 'Staff account not found in database.' };
     } catch {
-      const localMatch = findLocalStaffByEmail(email);
-      if (localMatch) {
-        saveSession(localMatch);
-        return { success: true, redirectUrl: getRedirectForRole(), staff: localMatch };
-      }
-      return { success: false, error: 'Network error verifying credentials.' };
+      return { success: false, error: 'Database authentication error. Please try again.' };
     }
   };
 
   const quickLoginAs = async (role: StaffRole): Promise<boolean> => {
-    const localMatch = INITIAL_STAFF.find(s => s.role === role) || INITIAL_STAFF[0];
-    saveSession(localMatch);
-    return true;
+    try {
+      const res = await fetch('/api/staff/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.staff) {
+        persistStaff(data.staff, data.token);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
   };
 
   const logout = () => {
     setCurrentStaff(null);
     try {
       localStorage.removeItem(STORAGE_KEY);
-      document.cookie = 'flv_st_token=; path=/; max-age=0; SameSite=Lax';
-    } catch (e) {
-      console.error(e);
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+    } catch {
+      // ignore
     }
+    fetch('/api/staff/login', { method: 'DELETE' }).catch(() => {});
   };
 
   const canAccess = (allowedRoles: string[]): boolean => {
     if (!currentStaff) return false;
     if (currentStaff.role === 'Admin') return true;
-    return allowedRoles.some(
-      r => r.toLowerCase() === currentStaff.role.toLowerCase() ||
-           currentStaff.permissions?.includes(r.toLowerCase()) ||
-           currentStaff.permissions?.includes('all')
-    );
+    return allowedRoles.includes(currentStaff.role);
   };
 
   return (
     <StaffAuthContext.Provider
       value={{
         currentStaff,
-        isAuthenticated: Boolean(currentStaff),
+        isAuthenticated: !!currentStaff,
         isLoading,
         loginWithPin,
         loginWithEmail,
         quickLoginAs,
         logout,
-        canAccess
+        canAccess,
       }}
     >
       {children}
@@ -184,9 +178,9 @@ export function StaffAuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useStaffAuth() {
-  const context = useContext(StaffAuthContext);
-  if (!context) {
+  const ctx = useContext(StaffAuthContext);
+  if (!ctx) {
     throw new Error('useStaffAuth must be used within a StaffAuthProvider');
   }
-  return context;
+  return ctx;
 }

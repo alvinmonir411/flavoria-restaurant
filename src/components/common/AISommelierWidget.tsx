@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Sparkles, 
   Wine, 
@@ -13,7 +13,7 @@ import {
   ChefHat 
 } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
-import { INITIAL_MENU_ITEMS } from '@/lib/seed-data';
+import { MenuItem } from '@/types';
 
 interface Message {
   id: string;
@@ -58,7 +58,22 @@ export default function AISommelierWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [addedId, setAddedId] = useState<string | null>(null);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const { addToCart } = useCart();
+
+  useEffect(() => {
+    if (!isOpen || menuItems.length > 0) return;
+    let active = true;
+    fetch('/api/menu')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => {
+        if (active && Array.isArray(data)) setMenuItems(data);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [isOpen, menuItems.length]);
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -94,7 +109,7 @@ export default function AISommelierWidget() {
 
       let recItem = undefined;
       if (match.itemId) {
-        const found = INITIAL_MENU_ITEMS.find(i => i.id === match.itemId);
+        const found = menuItems.find(i => i.id === match.itemId) || menuItems[0];
         if (found) {
           recItem = {
             id: found.id,
@@ -117,7 +132,7 @@ export default function AISommelierWidget() {
   };
 
   const handleAddToCart = (item: { id: string; name: string; price: number; category: string }) => {
-    const fullDish = INITIAL_MENU_ITEMS.find(i => i.id === item.id);
+    const fullDish = menuItems.find(i => i.id === item.id);
     if (fullDish) {
       addToCart(fullDish, 1);
       setAddedId(item.id);

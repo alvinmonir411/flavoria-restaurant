@@ -34,14 +34,25 @@ export async function POST(req: Request) {
     // Generate authenticated session token
     const token = `flv_st_${matchedStaff.id}_${Date.now()}`;
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       success: true,
       staff: matchedStaff,
       token,
       role: matchedStaff.role,
       name: matchedStaff.name,
-      redirectUrl
+      redirectUrl,
     });
+
+    const isHttps = req.headers.get('x-forwarded-proto') === 'https' || req.url.startsWith('https://');
+    res.cookies.set('flv_st_token', token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: isHttps,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    return res;
   } catch (error) {
     console.error('Staff login error:', error);
     return NextResponse.json(
@@ -49,4 +60,10 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+}
+
+export async function DELETE() {
+  const res = NextResponse.json({ success: true });
+  res.cookies.delete('flv_st_token');
+  return res;
 }

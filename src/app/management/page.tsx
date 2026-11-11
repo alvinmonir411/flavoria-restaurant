@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import StaffAuthGuard from '@/components/auth/StaffAuthGuard';
+import { getStaffRequestHeaders } from '@/context/StaffAuthContext';
 import { 
   LayoutDashboard, 
   CalendarDays, 
@@ -55,7 +56,7 @@ import {
   GuestProfile,
   PromoCode,
   GiftCard,
-  EventInquiry,
+  RestaurantSettings,
   TableCallRequest
 } from '@/types';
 
@@ -99,9 +100,20 @@ function ManagementContent() {
   const [guests, setGuests] = useState<GuestProfile[]>([]);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [giftCards, setGiftCards] = useState<GiftCard[]>([]);
-  const [events, setEvents] = useState<EventInquiry[]>([]);
-  const [dbStatus, setDbStatus] = useState<{ configured: boolean; connected: boolean; mode: string; message: string } | null>(null);
+  const [dbStatus, setDbStatus] = useState<{
+    configured: boolean;
+    connected: boolean;
+    mode: string;
+    cacheStrategy?: string;
+    counts?: Record<string, number>;
+    message: string;
+  } | null>(null);
   const [tableCalls, setTableCalls] = useState<TableCallRequest[]>([]);
+  const [settings, setSettings] = useState<RestaurantSettings | null>(null);
+  const [cacheBusy, setCacheBusy] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [menuSaving, setMenuSaving] = useState(false);
+  const [adminToast, setAdminToast] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -163,7 +175,7 @@ function ManagementContent() {
   const fetchData = useCallback(async (isSilent = false) => {
     if (!isSilent) setRefreshing(true);
     try {
-      const [resR, resM, resO, resT, resD, resW, resI, resS, resG, resP, resGc, resE, resC] = await Promise.all([
+      const [resR, resM, resO, resT, resD, resW, resI, resS, resG, resP, resGc, resC, resSet] = await Promise.all([
         fetch('/api/reservations').then(r => r.json()).catch(() => ({ reservations: [] })),
         fetch('/api/menu').then(r => r.json()).catch(() => ({ items: [] })),
         fetch('/api/orders').then(r => r.json()).catch(() => ({ orders: [] })),
@@ -175,8 +187,8 @@ function ManagementContent() {
         fetch('/api/guests').then(r => r.json()).catch(() => ({ guests: [] })),
         fetch('/api/promo').then(r => r.json()).catch(() => ({ promoCodes: [] })),
         fetch('/api/gift-cards').then(r => r.json()).catch(() => ({ giftCards: [] })),
-        fetch('/api/events').then(r => r.json()).catch(() => ({ events: [] })),
-        fetch('/api/table-calls').then(r => r.json()).catch(() => ({ calls: [] }))
+        fetch('/api/table-calls').then(r => r.json()).catch(() => ({ calls: [] })),
+        fetch('/api/settings').then(r => r.json()).catch(() => ({ settings: null }))
       ]);
 
       if (resR.reservations) setReservations(resR.reservations);
@@ -190,8 +202,8 @@ function ManagementContent() {
       if (resG.guests) setGuests(resG.guests);
       if (resP.promoCodes) setPromoCodes(resP.promoCodes);
       if (resGc.giftCards) setGiftCards(resGc.giftCards);
-      if (resE.events) setEvents(resE.events);
       if (resC.calls) setTableCalls(resC.calls);
+      if (resSet.settings) setSettings(resSet.settings);
     } catch (e) {
       console.error('Fetch operations data failed:', e);
     } finally {
@@ -219,7 +231,7 @@ function ManagementContent() {
     try {
       await fetch('/api/table-calls', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getStaffRequestHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ id: callId })
       });
       setTableCalls(prev => prev.map(c => c.id === callId ? { ...c, status: 'attended' } : c));
@@ -233,7 +245,7 @@ function ManagementContent() {
     try {
       const res = await fetch('/api/reservations', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getStaffRequestHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ id, status })
       });
       if (res.ok) {
@@ -248,7 +260,7 @@ function ManagementContent() {
     try {
       const res = await fetch('/api/tables', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getStaffRequestHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ id, status, currentGuest: guest || (status === 'occupied' ? 'Walk-in Guests' : null) })
       });
       if (res.ok) {
@@ -264,7 +276,7 @@ function ManagementContent() {
     try {
       const res = await fetch('/api/orders', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getStaffRequestHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ id, status })
       });
       if (res.ok) {
@@ -275,18 +287,165 @@ function ManagementContent() {
     }
   };
 
+  const showToastMsg = (msg: string) => {
+    setAdminToast(msg);
+    setTimeout(() => setAdminToast(null), 4000);
+  };
+
   const handleToggleDishAvailability = async (item: MenuItem) => {
     try {
       const res = await fetch('/api/menu', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getStaffRequestHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ id: item.id, isAvailable: !item.isAvailable })
       });
       if (res.ok) {
         setMenuItems(prev => prev.map(m => m.id === item.id ? { ...m, isAvailable: !m.isAvailable } : m));
+        showToastMsg(`Updated "${item.name}" & cleared + re-warmed menu cache.`);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToastMsg(err.error || 'Failed to update menu item.');
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleOpenCreateDish = () => {
+    setEditingDish(null);
+    setDishForm({
+      name: '',
+      category: 'Dinner',
+      price: 24.99,
+      description: '',
+      imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=800&auto=format&fit=crop',
+      isSignature: false,
+      dietaryTagsStr: 'Chef Special',
+    });
+    setShowAddDishModal(true);
+  };
+
+  const handleOpenEditDish = (dish: MenuItem) => {
+    setEditingDish(dish);
+    setDishForm({
+      name: dish.name,
+      category: dish.category,
+      price: dish.price,
+      description: dish.description,
+      imageUrl: dish.imageUrl,
+      isSignature: dish.isSignature,
+      dietaryTagsStr: (dish.dietaryTags || []).join(', '),
+    });
+    setShowAddDishModal(true);
+  };
+
+  const handleSaveDish = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMenuSaving(true);
+    const dietaryTags = dishForm.dietaryTagsStr
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    try {
+      const method = editingDish ? 'PUT' : 'POST';
+      const payload = {
+        ...(editingDish ? { id: editingDish.id } : {}),
+        name: dishForm.name.trim(),
+        category: dishForm.category,
+        price: Number(dishForm.price),
+        description: dishForm.description.trim(),
+        imageUrl: dishForm.imageUrl.trim() || 'https://images.unsplash.com/photo-1544025162-d76694265947?w=800&auto=format&fit=crop',
+        isSignature: dishForm.isSignature,
+        isAvailable: editingDish ? editingDish.isAvailable : true,
+        dietaryTags,
+      };
+
+      const res = await fetch('/api/menu', {
+        method,
+        headers: getStaffRequestHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok && data.item) {
+        await fetchData(true);
+        setShowAddDishModal(false);
+        setEditingDish(null);
+        showToastMsg(`${editingDish ? 'Updated' : 'Created'} "${data.item.name}" in Neon DB — cache refreshed immediately!`);
+      } else {
+        showToastMsg(data.error || 'Failed to save dish.');
+      }
+    } catch (err) {
+      console.error(err);
+      showToastMsg('Network error saving dish.');
+    } finally {
+      setMenuSaving(false);
+    }
+  };
+
+  const handleDeleteDish = async (dish: MenuItem) => {
+    try {
+      const res = await fetch(`/api/menu?id=${encodeURIComponent(dish.id)}`, {
+        method: 'DELETE',
+        headers: getStaffRequestHeaders(),
+      });
+      if (res.ok) {
+        setMenuItems(prev => prev.filter(m => m.id !== dish.id));
+        showToastMsg(`Removed "${dish.name}" from Neon DB & re-cached menu.`);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToastMsg(data.error || 'Failed to delete dish.');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!settings) return;
+    setSettingsSaving(true);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: getStaffRequestHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(settings),
+      });
+      const data = await res.json();
+      if (res.ok && data.settings) {
+        setSettings(data.settings);
+        showToastMsg('Global settings saved to Neon DB — storefront cache cleared & re-cached!');
+      } else {
+        showToastMsg(data.error || 'Only Admin can update global settings.');
+      }
+    } catch (e) {
+      console.error(e);
+      showToastMsg('Network error saving settings.');
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  const handleCacheAction = async (action: 'revalidate_cache' | 'init_schema') => {
+    setCacheBusy(true);
+    try {
+      const res = await fetch('/api/db-status', {
+        method: 'POST',
+        headers: getStaffRequestHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        await fetchData(true);
+        showToastMsg(data.message || 'Cache purged and re-cached cleanly.');
+      } else {
+        showToastMsg(data.error || 'Failed to refresh database cache.');
+      }
+    } catch (e) {
+      console.error(e);
+      showToastMsg('Error executing database cache operation.');
+    } finally {
+      setCacheBusy(false);
     }
   };
 
@@ -294,7 +453,7 @@ function ManagementContent() {
     try {
       const res = await fetch('/api/inventory', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getStaffRequestHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ id, delta })
       });
       if (res.ok) {
@@ -312,7 +471,7 @@ function ManagementContent() {
     try {
       const res = await fetch('/api/staff', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getStaffRequestHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ id })
       });
       if (res.ok) {
@@ -331,7 +490,7 @@ function ManagementContent() {
     try {
       const res = await fetch('/api/waitlist', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getStaffRequestHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(waitlistForm)
       });
       if (res.ok) {
@@ -487,7 +646,7 @@ function ManagementContent() {
               }`}
             >
               <Database className="w-3.5 h-3.5" />
-              <span>{dbStatus?.connected ? 'Neon PostgreSQL Live' : 'In-Memory Fallback'}</span>
+              <span>{dbStatus?.connected ? 'Neon DB-Only Live' : 'DB Connection Error'}</span>
             </button>
 
             <button
@@ -642,6 +801,17 @@ function ManagementContent() {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-8 py-8 flex-1 w-full">
+        {adminToast && (
+          <div className="mb-6 p-3.5 rounded-2xl bg-emerald-950/70 border border-emerald-500/40 text-emerald-200 text-xs font-medium flex items-center justify-between gap-4 animate-fade-in">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{adminToast}</span>
+            </div>
+            <button onClick={() => setAdminToast(null)} className="text-emerald-400 hover:text-white">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
         {loading ? (
           <div className="py-24 text-center">
             <div className="w-10 h-10 border-4 border-[#ea580c] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
@@ -1255,7 +1425,7 @@ function ManagementContent() {
                   </div>
 
                   <button
-                    onClick={() => setShowAddDishModal(true)}
+                    onClick={handleOpenCreateDish}
                     className="px-4 py-2 rounded-xl btn-primary-orange text-xs font-bold uppercase tracking-wider flex items-center gap-1.5"
                   >
                     <Plus className="w-3.5 h-3.5 text-white" />
@@ -1282,14 +1452,30 @@ function ManagementContent() {
 
                       <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
                         <span className="font-bold text-white text-base">${dish.price.toFixed(2)}</span>
-                        <button
-                          onClick={() => handleToggleDishAvailability(dish)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold ${
-                            dish.isAvailable ? 'bg-slate-800 text-rose-300 hover:bg-rose-950' : 'bg-emerald-600 text-white'
-                          }`}
-                        >
-                          {dish.isAvailable ? '86 Dish' : 'Restore'}
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleOpenEditDish(dish)}
+                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                            title="Edit dish"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteDish(dish)}
+                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-950 text-rose-400 transition-colors"
+                            title="Delete dish"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleToggleDishAvailability(dish)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold ${
+                              dish.isAvailable ? 'bg-slate-800 text-rose-300 hover:bg-rose-950' : 'bg-emerald-600 text-white'
+                            }`}
+                          >
+                            {dish.isAvailable ? '86 Dish' : 'Restore'}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1534,30 +1720,6 @@ function ManagementContent() {
                     ))}
                   </div>
                 </div>
-
-                {/* Private Dining Inquiries */}
-                <div className="p-6 rounded-3xl bg-[#0b0f19] border border-slate-800 space-y-4">
-                  <h4 className="font-serif text-lg font-bold text-white">Private Event Inquiries</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                    {events.map(ev => (
-                      <div key={ev.id} className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <strong className="text-white text-sm block">{ev.contactName} ({ev.eventType})</strong>
-                            <span className="text-slate-400 text-[11px]">{ev.email} • {ev.phone}</span>
-                          </div>
-                          <span className="px-2 py-0.5 rounded-full bg-[#ea580c]/10 text-[#ea580c] border border-orange-500/20 font-bold uppercase text-[10px]">
-                            {ev.status}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-xs text-slate-300 pt-2 border-t border-slate-800">
-                          <span>{ev.guestCount} Guests • {ev.preferredDate}</span>
-                          <span className="font-serif font-bold text-white">${ev.estimatedBudget.toLocaleString()}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
             )}
 
@@ -1612,36 +1774,155 @@ function ManagementContent() {
             )}
 
             {/* ==================================================== */}
-            {/* TAB 12: NEON DATABASE SETTINGS                       */}
+            {/* TAB 12: NEON DATABASE-ONLY & INSTANT CACHE ENGINE    */}
             {/* ==================================================== */}
             {activeTab === 'database' && (
               <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
                 <div className="p-8 rounded-3xl bg-[#0b0f19] border border-slate-800 space-y-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
-                      <Database className="w-6 h-6" />
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
+                        <Database className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="font-serif text-2xl font-bold text-white">Neon PostgreSQL — Database-Only Mode</h3>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Static UI renders immediately; DB records cache on first load and clear + re-cache automatically upon Admin updates.
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-serif text-2xl font-bold text-white">Neon Serverless PostgreSQL Live</h3>
-                      <p className="text-xs text-slate-400 mt-1">High-performance auto-scaling cloud database for Flavoria.</p>
+                    <button
+                      onClick={() => handleCacheAction('revalidate_cache')}
+                      disabled={cacheBusy}
+                      className="px-4 py-2.5 rounded-xl btn-primary-orange text-xs font-bold uppercase tracking-wider flex items-center gap-2 shrink-0 disabled:opacity-60"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${cacheBusy ? 'animate-spin' : ''}`} />
+                      <span>Purge &amp; Re-Cache All</span>
+                    </button>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2.5 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Connection Mode:</span>
+                      <span className={dbStatus?.connected ? 'text-emerald-400 font-bold font-mono' : 'text-rose-400 font-bold font-mono'}>
+                        {dbStatus?.connected ? 'Neon Serverless PostgreSQL (Strict DB-Only)' : 'Disconnected Error'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Caching Strategy:</span>
+                      <span className="text-orange-300 font-mono">
+                        Static-First + Tagged Data Cache (Instant Purge on Write)
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Active Tables Seeded (20):</span>
+                      <span className="text-white font-mono text-right max-w-md">
+                        menu_items ({dbStatus?.counts?.menu_items ?? menuItems.length}), reservations ({dbStatus?.counts?.reservations ?? reservations.length}), orders ({dbStatus?.counts?.orders ?? orders.length}), dining_tables ({dbStatus?.counts?.dining_tables ?? tables.length}), staff_members ({dbStatus?.counts?.staff_members ?? staff.length}), inventory_items ({dbStatus?.counts?.inventory_items ?? inventory.length})
+                      </span>
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Connection Status:</span>
-                      <span className="text-emerald-400 font-bold font-mono">Connected & Verified</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Region:</span>
-                      <span className="text-white font-mono">AWS us-east-2 (Ohio)</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Schema Tables:</span>
-                      <span className="text-white font-mono">menu_items, reservations, dining_tables, orders, inventory_items, waitlist, staff_members, guest_profiles, promo_codes, gift_cards, event_inquiries</span>
-                    </div>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => handleCacheAction('init_schema')}
+                      disabled={cacheBusy}
+                      className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-bold text-slate-200 transition-colors"
+                    >
+                      Verify Schema &amp; Seed Empty Tables
+                    </button>
                   </div>
                 </div>
+
+                {/* Global Cached Settings Editor */}
+                {settings && (
+                  <form onSubmit={handleSaveSettings} className="p-8 rounded-3xl bg-[#0b0f19] border border-slate-800 space-y-5 text-xs">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                      <div>
+                        <h4 className="font-serif text-xl font-bold text-white">Restaurant Configuration (Cached in Neon)</h4>
+                        <p className="text-slate-400 mt-0.5">Saving here clears `db:settings` cache and re-caches storefront routes immediately.</p>
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={settingsSaving}
+                        className="px-4 py-2 rounded-xl btn-primary-orange text-xs font-bold uppercase tracking-wider disabled:opacity-60"
+                      >
+                        {settingsSaving ? 'Saving...' : 'Save & Clear Cache'}
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Restaurant Name</label>
+                        <input
+                          type="text"
+                          value={settings.name}
+                          onChange={(e) => setSettings({ ...settings, name: e.target.value })}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Tagline</label>
+                        <input
+                          type="text"
+                          value={settings.tagline}
+                          onChange={(e) => setSettings({ ...settings, tagline: e.target.value })}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Tax Rate (%)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={settings.taxRatePercent}
+                          onChange={(e) => setSettings({ ...settings, taxRatePercent: Number(e.target.value) })}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Default Delivery Fee</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={settings.deliveryFeeDefault}
+                          onChange={(e) => setSettings({ ...settings, deliveryFeeDefault: Number(e.target.value) })}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Announcement Banner</label>
+                      <input
+                        type="text"
+                        value={settings.announcementBanner}
+                        onChange={(e) => setSettings({ ...settings, announcementBanner: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap gap-6 pt-2">
+                      <label className="flex items-center gap-2 text-slate-200 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={settings.isOnlineOrderingOpen}
+                          onChange={(e) => setSettings({ ...settings, isOnlineOrderingOpen: e.target.checked })}
+                          className="rounded accent-[#ea580c]"
+                        />
+                        <span>Online Ordering Open</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-slate-200 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={settings.isReservationsOpen}
+                          onChange={(e) => setSettings({ ...settings, isReservationsOpen: e.target.checked })}
+                          className="rounded accent-[#ea580c]"
+                        />
+                        <span>Table Reservations Open</span>
+                      </label>
+                    </div>
+                  </form>
+                )}
               </div>
             )}
           </>
@@ -1706,6 +1987,137 @@ function ManagementContent() {
               <button type="submit" className="w-full py-3 rounded-xl btn-primary-orange text-xs font-bold uppercase tracking-wider shadow-md">
                 Queue to Waitlist
               </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Add / Edit Menu Dish */}
+      {showAddDishModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-lg p-6 rounded-3xl bg-[#0b0e17] border border-slate-700 shadow-2xl">
+            <button
+              onClick={() => {
+                setShowAddDishModal(false);
+                setEditingDish(null);
+              }}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="font-serif text-xl font-bold text-white mb-1">
+              {editingDish ? `Edit Dish: ${editingDish.name}` : 'Create New Menu Dish'}
+            </h3>
+            <p className="text-xs text-slate-400 mb-4">
+              Saves directly to Neon PostgreSQL and clears + re-caches storefront menus immediately.
+            </p>
+            <form onSubmit={handleSaveDish} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Dish Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={dishForm.name}
+                  onChange={(e) => setDishForm({ ...dishForm, name: e.target.value })}
+                  placeholder="e.g. Black Truffle Wagyu Risotto"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Category *</label>
+                  <select
+                    value={dishForm.category}
+                    onChange={(e) => setDishForm({ ...dishForm, category: e.target.value as MenuCategory })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
+                  >
+                    <option value="Breakfast">Breakfast</option>
+                    <option value="Lunch">Lunch</option>
+                    <option value="Dinner">Dinner</option>
+                    <option value="Desserts">Desserts</option>
+                    <option value="Drinks">Drinks</option>
+                    <option value="Chef's Special">Chef&apos;s Special</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Price ($) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={dishForm.price}
+                    onChange={(e) => setDishForm({ ...dishForm, price: Number(e.target.value) })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Description *</label>
+                <textarea
+                  rows={2}
+                  required
+                  value={dishForm.description}
+                  onChange={(e) => setDishForm({ ...dishForm, description: e.target.value })}
+                  placeholder="Artisanal ingredients & preparation notes..."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Image URL</label>
+                <input
+                  type="text"
+                  value={dishForm.imageUrl}
+                  onChange={(e) => setDishForm({ ...dishForm, imageUrl: e.target.value })}
+                  placeholder="https://images.unsplash.com/..."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Dietary Tags (comma separated)</label>
+                  <input
+                    type="text"
+                    value={dishForm.dietaryTagsStr}
+                    onChange={(e) => setDishForm({ ...dishForm, dietaryTagsStr: e.target.value })}
+                    placeholder="Chef Special, GF"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-slate-200 cursor-pointer pt-4">
+                  <input
+                    type="checkbox"
+                    checked={dishForm.isSignature}
+                    onChange={(e) => setDishForm({ ...dishForm, isSignature: e.target.checked })}
+                    className="rounded accent-[#ea580c]"
+                  />
+                  <span>Feature as Signature Dish</span>
+                </label>
+              </div>
+
+              <div className="pt-3 flex gap-3">
+                <button
+                  type="submit"
+                  disabled={menuSaving}
+                  className="flex-1 py-2.5 rounded-xl btn-primary-orange font-bold text-white uppercase tracking-wider disabled:opacity-60"
+                >
+                  {menuSaving ? 'Saving to Neon DB...' : editingDish ? 'Update Dish & Refresh Cache' : 'Create Dish & Refresh Cache'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddDishModal(false);
+                    setEditingDish(null);
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-slate-900 text-slate-300 border border-slate-700 font-bold"
+                >
+                  Cancel
+                </button>
+              </div>
             </form>
           </div>
         </div>

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import StaffAuthGuard from '@/components/auth/StaffAuthGuard';
+import { getStaffRequestHeaders } from '@/context/StaffAuthContext';
 import { 
   Truck, 
   MapPin, 
@@ -84,7 +85,7 @@ function DriverPortalContent() {
     try {
       const res = await fetch('/api/orders', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getStaffRequestHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ 
           id: orderId, 
           status: newStatus,
