@@ -3,12 +3,9 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
-import { useCurrency } from '@/context/CurrencyContext';
 import { useTheme } from '@/context/ThemeContext';
-import { useLanguage, LanguageCode } from '@/context/LanguageContext';
 import { useStaffAuth } from '@/context/StaffAuthContext';
 import { useCustomerAuth } from '@/context/CustomerAuthContext';
-import { CurrencyCode } from '@/types';
 import { 
   MapPin, 
   Clock, 
@@ -18,7 +15,6 @@ import {
   Menu as MenuIcon, 
   X, 
   UtensilsCrossed,
-  Globe,
   QrCode,
   Crown,
   CalendarCheck,
@@ -27,8 +23,6 @@ import {
   BellRing,
   User,
   ShieldCheck,
-  ChefHat,
-  Truck,
   ClipboardList,
   ChevronDown,
   LogOut
@@ -36,9 +30,7 @@ import {
 
 export default function Navbar() {
   const { totalItems, setIsCartOpen } = useCart();
-  const { currency, setCurrency } = useCurrency();
   const { theme, toggleTheme } = useTheme();
-  const { language, setLanguage, t } = useLanguage();
   const { currentStaff, isAuthenticated: isStaffAuthenticated, logout: logoutStaff } = useStaffAuth();
   const { customer, isCustomerLoggedIn, logoutCustomer } = useCustomerAuth();
   
@@ -56,7 +48,7 @@ export default function Navbar() {
         return {
           label: 'Admin',
           icon: Crown,
-          href: '/management',
+          href: '/dashboard/admin',
           color: 'text-amber-600',
           bg: 'bg-amber-50',
           border: 'border-amber-200'
@@ -65,16 +57,16 @@ export default function Navbar() {
         return {
           label: 'Manager',
           icon: ClipboardList,
-          href: '/management',
+          href: '/dashboard/manager',
           color: 'text-blue-600',
           bg: 'bg-blue-50',
           border: 'border-blue-200'
         };
       default:
         return {
-          label: 'Admin / Manager',
+          label: 'Dashboard Portal',
           icon: ShieldCheck,
-          href: '/staff-login',
+          href: '/dashboard',
           color: 'text-[#ea580c]',
           bg: 'bg-orange-50',
           border: 'border-orange-200'
@@ -89,7 +81,7 @@ export default function Navbar() {
   const activeUser = isStaffAuthenticated && currentStaff
     ? {
         name: currentStaff.name,
-        email: currentStaff.email || 'staff@flavoria.com',
+        email: currentStaff.email || 'admin@gmail.com',
         badge: currentStaff.role,
         isStaff: true,
         icon: activeRole.icon,
@@ -146,38 +138,8 @@ export default function Navbar() {
             <span>Mon - Sun: 11:00 AM - 11:30 PM (BST)</span>
           </div>
 
-          {/* Currency Switcher & Language & Theme & Phone */}
+          {/* Theme & Call Waiter & Phone */}
           <div className="flex items-center gap-3">
-            {/* Currency Selector */}
-            <div className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded-full border border-stone-200 text-[11px] font-bold text-stone-700">
-              <Globe className="w-3 h-3 text-[#ea580c]" />
-              <select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
-                className="bg-transparent text-[11px] font-bold focus:outline-none cursor-pointer text-stone-800"
-              >
-                <option value="BDT">BDT (৳)</option>
-                <option value="USD">USD ($)</option>
-                <option value="EUR">EUR (€)</option>
-                <option value="GBP">GBP (£)</option>
-              </select>
-            </div>
-
-            {/* Language Selector */}
-            <div className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-full border border-stone-200 text-[11px] font-bold text-stone-700">
-              <span className="text-[11px]">🌐</span>
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value as LanguageCode)}
-                className="bg-transparent text-[11px] font-bold focus:outline-none cursor-pointer text-stone-800"
-              >
-                <option value="en">English (US)</option>
-                <option value="bn">বাংলা (BN)</option>
-                <option value="fr">Français (FR)</option>
-                <option value="es">Español (ES)</option>
-              </select>
-            </div>
-
             {/* Dark/Light Mode Toggle */}
             <button
               onClick={toggleTheme}
@@ -193,7 +155,7 @@ export default function Navbar() {
               className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-800 hover:bg-amber-100 transition-colors"
             >
               <BellRing className="w-3 h-3 text-amber-600 animate-bounce" />
-              <span>{t('requestAssistance')}</span>
+              <span>Call Waiter</span>
             </button>
 
             <a href="tel:+8801711223344" className="flex items-center gap-1.5 text-stone-700 hover:text-[#ea580c] font-semibold">
@@ -377,38 +339,6 @@ export default function Navbar() {
                           </div>
 
                           <div className="pt-2 border-t border-stone-100 mb-2">
-                            <p className="px-2 text-[10px] uppercase font-bold tracking-wider text-stone-400 mb-1">
-                              Switch Operational Station
-                            </p>
-                            <div className="space-y-0.5">
-                              <Link
-                                href="/management"
-                                onClick={() => setAccountMenuOpen(false)}
-                                className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-stone-50 text-xs font-medium text-stone-700 hover:text-stone-900 transition-colors"
-                              >
-                                <Crown className="w-3.5 h-3.5 text-amber-500" />
-                                <span>Admin & Management Suite</span>
-                              </Link>
-                              <Link
-                                href="/kitchen"
-                                onClick={() => setAccountMenuOpen(false)}
-                                className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-stone-50 text-xs font-medium text-stone-700 hover:text-stone-900 transition-colors"
-                              >
-                                <ChefHat className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>Kitchen Display (KDS)</span>
-                              </Link>
-                              <Link
-                                href="/driver"
-                                onClick={() => setAccountMenuOpen(false)}
-                                className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-stone-50 text-xs font-medium text-stone-700 hover:text-stone-900 transition-colors"
-                              >
-                                <Truck className="w-3.5 h-3.5 text-blue-600" />
-                                <span>Driver Dispatch Fleet</span>
-                              </Link>
-                            </div>
-                          </div>
-
-                          <div className="pt-2 border-t border-stone-100 mb-2">
                             <Link
                               href="/account"
                               onClick={() => setAccountMenuOpen(false)}
@@ -455,12 +385,12 @@ export default function Navbar() {
 
                           <div className="pt-2 border-t border-stone-100 mb-2">
                             <Link
-                              href="/staff-login"
+                              href="/dashboard"
                               onClick={() => setAccountMenuOpen(false)}
                               className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-stone-50 text-xs font-medium text-stone-500 hover:text-[#ea580c] transition-colors"
                             >
                               <ShieldCheck className="w-3.5 h-3.5 text-stone-400" />
-                              <span>Staff Portal Login</span>
+                              <span>Admin / Manager Dashboard</span>
                             </Link>
                           </div>
                         </>
@@ -503,13 +433,13 @@ export default function Navbar() {
 
                       <div className="pt-2 border-t border-stone-100">
                         <Link
-                          href="/staff-login"
+                          href="/dashboard"
                           onClick={() => setAccountMenuOpen(false)}
                           className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-stone-50 hover:bg-orange-50 border border-stone-200 hover:border-orange-200 text-stone-700 hover:text-[#ea580c] text-xs font-bold transition-all group"
                         >
                           <div className="flex items-center gap-2">
                             <ShieldCheck className="w-4 h-4 text-[#ea580c]" />
-                            <span>Staff Portal Login</span>
+                            <span>Dashboard Login</span>
                           </div>
                           <span className="text-[10px] text-stone-400 group-hover:text-[#ea580c] transition-colors">
                             Email & Password →
@@ -536,20 +466,6 @@ export default function Navbar() {
         {/* Mobile Dropdown Menu */}
         {mobileMenuOpen && (
           <div className="xl:hidden mt-3 p-4 rounded-2xl bg-white border border-stone-200 flex flex-col gap-2.5 text-sm shadow-xl">
-            {/* Currency Selector Mobile */}
-            <div className="flex items-center justify-between pb-2 border-b border-stone-100">
-              <span className="text-xs text-stone-500 font-medium">Currency:</span>
-              <select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
-                className="bg-stone-50 border border-stone-200 px-3 py-1 rounded-lg text-xs font-bold text-stone-800"
-              >
-                <option value="USD">USD ($)</option>
-                <option value="EUR">EUR (€)</option>
-                <option value="GBP">GBP (£)</option>
-                <option value="BDT">BDT (৳)</option>
-              </select>
-            </div>
 
             <Link
               href="/"
@@ -650,12 +566,12 @@ export default function Navbar() {
                     <span>Customer Account</span>
                   </Link>
                   <Link
-                    href="/staff-login"
+                    href="/dashboard"
                     onClick={() => setMobileMenuOpen(false)}
                     className="w-full py-2 px-3 rounded-xl bg-stone-50 hover:bg-orange-50 border border-stone-200 text-stone-700 hover:text-[#ea580c] text-xs font-bold flex items-center justify-center gap-2"
                   >
                     <ShieldCheck className="w-3.5 h-3.5 text-[#ea580c]" />
-                    <span>Staff Portal Sign In</span>
+                    <span>Dashboard Sign In</span>
                   </Link>
                 </div>
               )}

@@ -1,15 +1,14 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { StaffMember, StaffRole } from '@/types';
 
-interface StaffAuthContextType {
+export interface StaffAuthContextType {
   currentStaff: StaffMember | null;
+  token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  loginWithPin: (pin: string) => Promise<{ success: boolean; error?: string; redirectUrl?: string; staff?: StaffMember }>;
-  loginWithEmail: (email: string, password?: string) => Promise<{ success: boolean; error?: string; redirectUrl?: string; staff?: StaffMember }>;
-  quickLoginAs: (role: StaffRole) => Promise<boolean>;
+  loginWithEmail: (email: string, password: string) => Promise<{ success: boolean; error?: string; redirectUrl?: string; staff?: StaffMember }>;
   logout: () => void;
   canAccess: (allowedRoles: string[]) => boolean;
 }
@@ -19,155 +18,102 @@ const StaffAuthContext = createContext<StaffAuthContextType | undefined>(undefin
 const STORAGE_KEY = 'flavoria_staff_session';
 const TOKEN_STORAGE_KEY = 'flavoria_staff_token';
 
+/** Returns headers carrying the current staff token for protected admin/manager API mutations. */
 export function getStaffRequestHeaders(extra: Record<string, string> = {}): Record<string, string> {
-  const headers: Record<string, string> = { ...extra };
-  if (typeof window !== 'undefined') {
-    try {
-      const token = localStorage.getItem(TOKEN_STORAGE_KEY);
-      if (token) headers['x-staff-token'] = token;
-    } catch {
-      // ignore storage errors
-    }
-  }
-  return headers;
+  if (typeof window === 'undefined') return extra;
+  const savedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+  return savedToken ? { ...extra, Authorization: `Bearer ${savedToken}` } : extra;
 }
 
-function normalizeStoredRole(rawRole?: string): StaffRole | null {
-  if (!rawRole) return null;
-  const r = rawRole.toLowerCase();
-  if (r === 'admin') return 'Admin';
-  if (r === 'manager') return 'Manager';
-  return null;
+export function getDashboardPathForRole(role?: StaffRole | string): string {
+  return role === 'Admin' ? '/dashboard/admin' : '/dashboard/manager';
 }
 
 export function StaffAuthProvider({ children }: { children: React.ReactNode }) {
   const [currentStaff, setCurrentStaff] = useState<StaffMember | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as StaffMember;
-        const normalizedRole = normalizeStoredRole(parsed?.role);
-        if (normalizedRole) {
-          const normalizedStaff = { ...parsed, role: normalizedRole };
-          setCurrentStaff(normalizedStaff);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizedStaff));
-        } else {
-          localStorage.removeItem(STORAGE_KEY);
+    const restoreSession = async () => {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        const savedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+        if (saved && savedToken) {
+          const parsed = JSON.parse(saved) as StaffMember;
+          if (parsed && (parsed.role === 'Admin' || parsed.role === 'Manager')) {
+            setCurrentStaff(parsed);
+            setToken(savedToken);
+          } else {
+            localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(TOKEN_STORAGE_KEY);
+          }
         }
+      } catch {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+      } finally {
+        setIsLoading(false);
       }
-    } catch {
-      // ignore storage errors
-    } finally {
-      setIsLoading(false);
-    }
+    };
+    restoreSession();
   }, []);
 
-  const persistStaff = (staff: StaffMember, token?: string) => {
+  const persistSession = (staff: StaffMember, nextToken: string) => {
     setCurrentStaff(staff);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(staff));
-      if (token) {
-        localStorage.setItem(TOKEN_STORAGE_KEY, token);
-      }
-    } catch {
-      // ignore storage errors
-    }
-  };
-
-  const getRedirectForRole = () => '/management';
-
-  const loginWithPin = async (
-    pin: string
-  ): Promise<{ success: boolean; error?: string; redirectUrl?: string; staff?: StaffMember }> => {
-    try {
-      const res = await fetch('/api/staff/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin }),
-      });
-      const data = await res.json();
-
-      if (res.ok && data.success && data.staff) {
-        persistStaff(data.staff, data.token);
-        return { success: true, redirectUrl: data.redirectUrl || getRedirectForRole(), staff: data.staff };
-      }
-
-      return { success: false, error: data.error || 'Invalid PIN. Please use Admin (1111) or Manager (2222).' };
-    } catch {
-      return { success: false, error: 'Database authentication error. Please try again.' };
-    }
+    setToken(nextToken);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(staff));
+    localStorage.setItem(TOKEN_STORAGE_KEY, nextToken);
   };
 
   const loginWithEmail = async (
     email: string,
-    password?: string
+    password: string
   ): Promise<{ success: boolean; error?: string; redirectUrl?: string; staff?: StaffMember }> => {
     try {
       const res = await fetch('/api/staff/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password })
       });
       const data = await res.json();
-
-      if (res.ok && data.success && data.staff) {
-        persistStaff(data.staff, data.token);
-        return { success: true, redirectUrl: data.redirectUrl || getRedirectForRole(), staff: data.staff };
+      if (res.ok && data.staff && data.token) {
+        persistSession(data.staff, data.token);
+        const redirectUrl = data.redirectUrl || getDashboardPathForRole(data.staff.role);
+        return { success: true, redirectUrl, staff: data.staff };
       }
-
-      return { success: false, error: data.error || 'Staff account not found in database.' };
+      return { success: false, error: data.error || 'Invalid email or password.' };
     } catch {
-      return { success: false, error: 'Database authentication error. Please try again.' };
-    }
-  };
-
-  const quickLoginAs = async (role: StaffRole): Promise<boolean> => {
-    try {
-      const res = await fetch('/api/staff/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success && data.staff) {
-        persistStaff(data.staff, data.token);
-        return true;
-      }
-      return false;
-    } catch {
-      return false;
+      return { success: false, error: 'Network connection error.' };
     }
   };
 
   const logout = () => {
     setCurrentStaff(null);
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
-    } catch {
-      // ignore
-    }
+    setToken(null);
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
     fetch('/api/staff/login', { method: 'DELETE' }).catch(() => {});
   };
 
   const canAccess = (allowedRoles: string[]): boolean => {
     if (!currentStaff) return false;
-    if (currentStaff.role === 'Admin') return true;
-    return allowedRoles.includes(currentStaff.role);
+    if (currentStaff.role === 'Admin' || currentStaff.permissions?.includes('all')) {
+      return true;
+    }
+    return allowedRoles.some(
+      (r) => r.toLowerCase() === currentStaff.role.toLowerCase()
+    );
   };
 
   return (
     <StaffAuthContext.Provider
       value={{
         currentStaff,
-        isAuthenticated: !!currentStaff,
+        token,
+        isAuthenticated: !!currentStaff && !!token,
         isLoading,
-        loginWithPin,
         loginWithEmail,
-        quickLoginAs,
         logout,
         canAccess,
       }}
@@ -180,7 +126,7 @@ export function StaffAuthProvider({ children }: { children: React.ReactNode }) {
 export function useStaffAuth() {
   const ctx = useContext(StaffAuthContext);
   if (!ctx) {
-    throw new Error('useStaffAuth must be used within a StaffAuthProvider');
+    throw new Error('useStaffAuth must be used within StaffAuthProvider');
   }
   return ctx;
 }

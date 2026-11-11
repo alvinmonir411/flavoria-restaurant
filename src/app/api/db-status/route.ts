@@ -64,7 +64,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const auth = await verifyStaffAuth(req, ['Admin', 'Manager']);
+    const auth = await verifyStaffAuth(req, ['Admin']);
     if (!auth.authorized) {
       return NextResponse.json({ error: auth.error }, { status: auth.statusCode || 401 });
     }

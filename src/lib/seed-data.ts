@@ -454,7 +454,7 @@ export const INITIAL_ORDERS: Order[] = [
     customerName: 'Sir Arthur Wellesley',
     customerPhone: '+1 (555) 890-4421',
     deliveryAddress: 'Gulshan-2, Road 71, Block NW(B)',
-    deliveryZone: 'Zone 1: Gulshan / Banani (৳50)',
+    deliveryZone: 'Zone 1: Gulshan / Banani ($5.00)',
     deliveryFee: 0.5,
     paymentMethod: 'Cash on Delivery',
     paymentStatus: 'paid',
@@ -620,9 +620,14 @@ export const INITIAL_WAITLIST: WaitlistEntry[] = [
 ];
 
 export const INITIAL_STAFF: StaffMember[] = [
-  { id: 'st-admin', name: 'Alvin Monir', email: 'admin@flavoria.com', pinCode: '1111', role: 'Admin', shift: 'Morning', isClockedIn: true, hoursWorkedToday: 4.0, phone: '+880 1711-000001', station: 'Floor', permissions: ['all'] },
-  { id: 'st-manager', name: 'Rahim Chowdhury', email: 'manager@flavoria.com', pinCode: '2222', role: 'Manager', shift: 'Morning', isClockedIn: true, hoursWorkedToday: 6.0, phone: '+880 1711-000002', station: 'Floor', permissions: ['management', 'kds', 'driver', 'inventory', 'reports'] }
+  { id: 'st-admin', name: 'Alvin Monir', email: 'admin@gmail.com', role: 'Admin', shift: 'Morning', isClockedIn: true, hoursWorkedToday: 4.0, phone: '+880 1711-000001', station: 'Floor', permissions: ['all'] },
+  { id: 'st-manager', name: 'Rahim Chowdhury', email: 'manager@gamil.com', role: 'Manager', shift: 'Morning', isClockedIn: true, hoursWorkedToday: 6.0, phone: '+880 1711-000002', station: 'Floor', permissions: ['management', 'kds', 'inventory', 'reservations', 'tables', 'waitlist'] }
 ];
+
+export const STAFF_SEED_PASSWORDS: Record<string, string> = {
+  'st-admin': '136633',
+  'st-manager': '136633',
+};
 
 export const INITIAL_GUEST_PROFILES: GuestProfile[] = [
   {

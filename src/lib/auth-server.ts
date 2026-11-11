@@ -51,7 +51,7 @@ export async function verifyStaffAuth(
   }
 
   const staffList = await getStaff();
-  const matched = staffList.find(s => s.id === staffId || s.pinCode === token);
+  const matched = staffList.find(s => s.id === staffId);
 
   if (!matched) {
     return {

@@ -46,6 +46,7 @@ import {
   INITIAL_TABLE_CALLS,
   INITIAL_TABLES,
   INITIAL_WAITLIST,
+  STAFF_SEED_PASSWORDS,
 } from './seed-data';
 import { CACHE_TAGS, STOREFRONT_PATHS, invalidateCache, purgeAndRewarmAll } from './cache';
 
@@ -264,6 +265,7 @@ export async function ensureNeonSchema(): Promise<void> {
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255),
         pin_code VARCHAR(20),
+        password VARCHAR(255),
         role VARCHAR(50) NOT NULL,
         shift VARCHAR(50) NOT NULL,
         is_clocked_in BOOLEAN DEFAULT FALSE,
@@ -273,6 +275,7 @@ export async function ensureNeonSchema(): Promise<void> {
         permissions TEXT[] DEFAULT '{}'
       )
     `;
+    await sql`ALTER TABLE staff_members ADD COLUMN IF NOT EXISTS password VARCHAR(255)`;
 
     await sql`
       CREATE TABLE IF NOT EXISTS guest_profiles (
@@ -451,7 +454,24 @@ export async function ensureNeonSchema(): Promise<void> {
     `;
 
     await seedAllEmptyTables(sql);
-    await sql`DELETE FROM staff_members WHERE role NOT IN ('Admin', 'Manager')`;
+    for (const s of INITIAL_STAFF) {
+      const seedPassword = STAFF_SEED_PASSWORDS[s.id] ?? '136633';
+      await sql`
+        INSERT INTO staff_members (id, name, email, pin_code, password, role, shift, is_clocked_in, hours_worked_today, phone, station, permissions)
+        VALUES (${s.id}, ${s.name}, ${s.email ?? null}, ${s.pinCode ?? null}, ${seedPassword}, ${s.role}, ${s.shift}, ${s.isClockedIn}, ${s.hoursWorkedToday}, ${s.phone}, ${s.station}, ${s.permissions ?? []})
+        ON CONFLICT (id) DO UPDATE SET
+          name = EXCLUDED.name,
+          email = EXCLUDED.email,
+          password = EXCLUDED.password,
+          role = EXCLUDED.role,
+          permissions = EXCLUDED.permissions
+        WHERE
+          staff_members.email IS DISTINCT FROM EXCLUDED.email
+          OR staff_members.password IS DISTINCT FROM EXCLUDED.password
+          OR staff_members.role IS DISTINCT FROM EXCLUDED.role
+      `;
+    }
+    await sql`DELETE FROM staff_members WHERE role NOT IN ('Admin', 'Manager') OR email LIKE '%@flavoria.com'`;
 
     schemaInitialized = true;
   })().catch((err) => {
@@ -579,9 +599,10 @@ async function seedAllEmptyTables(sql: ReturnType<typeof getNeonSql>) {
 
   if ((c?.staff_count ?? 0) === 0) {
     for (const s of INITIAL_STAFF) {
+      const seedPassword = STAFF_SEED_PASSWORDS[s.id] ?? '136633';
       await sql`
-        INSERT INTO staff_members (id, name, email, pin_code, role, shift, is_clocked_in, hours_worked_today, phone, station, permissions)
-        VALUES (${s.id}, ${s.name}, ${s.email ?? null}, ${s.pinCode ?? null}, ${s.role}, ${s.shift}, ${s.isClockedIn}, ${s.hoursWorkedToday}, ${s.phone}, ${s.station}, ${s.permissions ?? []})
+        INSERT INTO staff_members (id, name, email, pin_code, password, role, shift, is_clocked_in, hours_worked_today, phone, station, permissions)
+        VALUES (${s.id}, ${s.name}, ${s.email ?? null}, ${s.pinCode ?? null}, ${seedPassword}, ${s.role}, ${s.shift}, ${s.isClockedIn}, ${s.hoursWorkedToday}, ${s.phone}, ${s.station}, ${s.permissions ?? []})
         ON CONFLICT (id) DO NOTHING
       `;
     }
@@ -1214,7 +1235,7 @@ export async function createOrder(
 
   invalidateCache({
     tags: [CACHE_TAGS.orders],
-    paths: ['/order', '/kitchen', '/driver'],
+    paths: ['/order', '/dashboard/admin', '/dashboard/manager'],
     rewarm: () => getOrders(),
   });
   return mapOrder(rows[0] as DbRow);
@@ -1241,7 +1262,7 @@ export async function updateOrderStatus(
 
   invalidateCache({
     tags: [CACHE_TAGS.orders],
-    paths: ['/order', '/kitchen', '/driver'],
+    paths: ['/order', '/dashboard/admin', '/dashboard/manager'],
     rewarm: () => getOrders(),
   });
   return mapOrder(rows[0] as DbRow);
@@ -1378,6 +1399,22 @@ export const getStaff = unstable_cache(
   { revalidate: false, tags: [CACHE_TAGS.staff, CACHE_TAGS.all] }
 );
 
+export async function verifyStaffCredentials(email: string, password: string): Promise<StaffMember | null> {
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanPassword = password.trim();
+  if (!cleanEmail || !cleanPassword) return null;
+
+  await ensureNeonSchema();
+  const sql = getNeonSql();
+  const rows = await sql`
+    SELECT * FROM staff_members
+    WHERE LOWER(email) = ${cleanEmail} AND password = ${cleanPassword}
+    LIMIT 1
+  `;
+  if (rows.length === 0) return null;
+  return mapStaff(rows[0] as DbRow);
+}
+
 export async function toggleStaffClockIn(id: string): Promise<StaffMember | null> {
   await ensureNeonSchema();
   const sql = getNeonSql();
@@ -1502,7 +1539,7 @@ export async function updateDriverStatus(id: string, status: DeliveryDriver['sta
   if (updated) {
     invalidateCache({
       tags: [CACHE_TAGS.drivers],
-      paths: ['/driver'],
+      paths: ['/dashboard/admin', '/dashboard/manager'],
       rewarm: () => getDeliveryDrivers(),
     });
   }

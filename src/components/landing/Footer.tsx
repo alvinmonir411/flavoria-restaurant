@@ -124,11 +124,11 @@ export default function Footer() {
             <a href="#" className="hover:text-[#ea580c]">Terms & Conditions</a>
             <span>•</span>
             <Link
-              href="/management"
+              href="/dashboard"
               className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-[#ea580c] font-bold hover:bg-orange-100 transition-colors"
             >
               <LayoutDashboard className="w-3 h-3" />
-              <span>Staff Portal</span>
+              <span>Dashboard Portal</span>
             </Link>
           </div>
         </div>

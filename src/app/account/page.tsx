@@ -7,7 +7,7 @@ import Navbar from '@/components/landing/Navbar';
 import Footer from '@/components/landing/Footer';
 import { useCart } from '@/context/CartContext';
 import { useCurrency } from '@/context/CurrencyContext';
-import { useCustomerAuth, DEFAULT_CUSTOMER } from '@/context/CustomerAuthContext';
+import { useCustomerAuth } from '@/context/CustomerAuthContext';
 import { useStaffAuth } from '@/context/StaffAuthContext';
 import { Order, Reservation } from '@/types';
 import { 
@@ -26,8 +26,6 @@ import {
   Receipt,
   LogOut,
   LogIn,
-  Crown,
-  ClipboardList,
   Eye,
   EyeOff,
   AlertCircle
@@ -266,16 +264,25 @@ export default function CustomerAccountPage() {
           text: `✓ Verified as ${staffResult.staff.role}! Opening ${staffResult.staff.name}'s workstation...` 
         });
         setTimeout(() => {
-          router.push(staffResult.redirectUrl || '/management');
+          router.push(staffResult.redirectUrl || '/dashboard');
         }, 600);
         return;
       }
 
-      // Step 2: If not a staff member, authenticate as Customer
+      // If someone enters an Admin/Manager email with an invalid password, do NOT log them in as customer!
+      if (
+        staffResult.error &&
+        (cleanEmail === 'admin@gmail.com' || cleanEmail === 'manager@gamil.com')
+      ) {
+        setAuthStatusMessage({ type: 'error', text: staffResult.error });
+        return;
+      }
+
+      // Step 2: Authenticate as Customer
       loginCustomer(cleanEmail, loginName || undefined);
       setAuthStatusMessage({ 
         type: 'success', 
-        text: `✓ Welcome to your personal dashboard!` 
+        text: `✓ Welcome to your personal customer account!` 
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Login failed. Please try again.';
@@ -283,33 +290,6 @@ export default function CustomerAccountPage() {
     } finally {
       setIsAuthenticating(false);
     }
-  };
-
-  const handleQuickRoleSelect = async (roleEmail: string, roleName?: string, isStaffRole?: boolean) => {
-    setLoginEmail(roleEmail);
-    setLoginPassword('••••••••');
-    setAuthStatusMessage(null);
-    setIsAuthenticating(true);
-
-    if (isStaffRole) {
-      const staffResult = await loginStaffWithEmail(roleEmail, '••••••••');
-      if (staffResult.success && staffResult.staff) {
-        setAuthStatusMessage({ 
-          type: 'success', 
-          text: `✓ Verified as ${staffResult.staff.role}! Redirecting...` 
-        });
-        setTimeout(() => {
-          router.push(staffResult.redirectUrl || '/management');
-        }, 500);
-      }
-    } else {
-      loginCustomer(roleEmail, roleName);
-      setAuthStatusMessage({ 
-        type: 'success', 
-        text: `✓ Signed in as ${roleName || 'Customer'}!` 
-      });
-    }
-    setIsAuthenticating(false);
   };
 
   return (
@@ -328,10 +308,10 @@ export default function CustomerAccountPage() {
             </div>
 
             <h1 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 mb-1.5">
-              Flavoria Unified Portal
+              Customer Sign In
             </h1>
             <p className="text-xs text-stone-500 mb-6 font-light max-w-md mx-auto">
-              Sign in with your email &amp; password. The system automatically identifies your role (Admin, Manager, or Customer) and opens your workstation.
+              Sign in with your email and password to manage your dining reservations, active orders, and saved delivery addresses.
             </p>
 
             {authStatusMessage && (
@@ -355,7 +335,7 @@ export default function CustomerAccountPage() {
                   required
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="e.g. manager@flavoria.com, admin@flavoria.com, or user@gmail.com"
+                  placeholder="Enter your email address"
                   className="w-full px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-xs text-stone-900 focus:outline-none focus:border-[#ea580c] transition-colors"
                 />
               </div>
@@ -391,7 +371,7 @@ export default function CustomerAccountPage() {
                   type="text"
                   value={loginName}
                   onChange={(e) => setLoginName(e.target.value)}
-                  placeholder="e.g. Rahim Ahmed, Sara Khan (optional for staff)"
+                  placeholder="e.g. Rahim Ahmed, Sara Khan"
                   className="w-full px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-xs text-stone-900 focus:outline-none focus:border-[#ea580c] transition-colors"
                 />
               </div>
@@ -404,67 +384,22 @@ export default function CustomerAccountPage() {
                 {isAuthenticating ? (
                   <>
                     <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Verifying Role &amp; Access...</span>
+                    <span>Signing In...</span>
                   </>
                 ) : (
                   <>
                     <LogIn className="w-4 h-4" />
-                    <span>Sign In (Auto-Detect Role)</span>
+                    <span>Sign In to Customer Account</span>
                   </>
                 )}
               </button>
             </form>
 
-            {/* Quick Role Selection Chips for instantaneous demonstration */}
-            <div className="pt-5 border-t border-stone-100 text-left">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-stone-400 mb-2.5 text-center">
-                ⚡ Instant 1-Click Role Login Demo
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleQuickRoleSelect('admin@flavoria.com', 'Alvin Monir', true)}
-                  className="p-2.5 rounded-xl bg-amber-50/70 hover:bg-amber-100/70 border border-amber-200 text-left transition-colors group"
-                >
-                  <div className="flex items-center gap-1.5 mb-1 text-amber-700 font-bold text-xs">
-                    <Crown className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Admin</span>
-                  </div>
-                  <p className="text-[10px] text-stone-500 font-mono truncate">admin@flavoria.com</p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleQuickRoleSelect('manager@flavoria.com', 'Rahim Chowdhury', true)}
-                  className="p-2.5 rounded-xl bg-blue-50/70 hover:bg-blue-100/70 border border-blue-200 text-left transition-colors group"
-                >
-                  <div className="flex items-center gap-1.5 mb-1 text-blue-700 font-bold text-xs">
-                    <ClipboardList className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Manager</span>
-                  </div>
-                  <p className="text-[10px] text-stone-500 font-mono truncate">manager@flavoria.com</p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleQuickRoleSelect('alvin@example.com', 'Alvin Monir', false)}
-                  className="p-2.5 rounded-xl bg-stone-100 hover:bg-orange-50 border border-stone-200 hover:border-orange-200 text-left transition-colors group"
-                >
-                  <div className="flex items-center gap-1.5 mb-1 text-stone-800 group-hover:text-[#ea580c] font-bold text-xs">
-                    <User className="w-3.5 h-3.5 text-stone-500 group-hover:text-[#ea580c]" />
-                    <span>Customer</span>
-                  </div>
-                  <p className="text-[10px] text-stone-500 font-mono truncate">alvin@example.com</p>
-                </button>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500">
-                <span>Fast 4-digit POS PIN Keypad:</span>
-                <Link href="/staff-login" className="text-[#ea580c] font-bold hover:underline">
-                  Open POS Keypad →
-                </Link>
-              </div>
+            <div className="pt-4 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500">
+              <span>Admin or Manager Portal?</span>
+              <Link href="/dashboard" className="text-[#ea580c] font-bold hover:underline">
+                Go to Dashboard Login →
+              </Link>
             </div>
 
           </div>

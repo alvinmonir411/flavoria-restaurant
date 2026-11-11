@@ -451,10 +451,10 @@ export default function OrderClient({
                   Order More Dishes
                 </button>
                 <Link
-                  href="/management"
+                  href="/menu"
                   className="px-6 py-3 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold tracking-wider"
                 >
-                  View on Kitchen Display
+                  Explore Full Menu
                 </Link>
               </div>
             </div>

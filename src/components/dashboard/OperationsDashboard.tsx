@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import StaffAuthGuard from '@/components/auth/StaffAuthGuard';
-import { getStaffRequestHeaders } from '@/context/StaffAuthContext';
+import { getStaffRequestHeaders, useStaffAuth } from '@/context/StaffAuthContext';
 import { 
   LayoutDashboard, 
   CalendarDays, 
@@ -38,8 +37,7 @@ import {
   Crown,
   Percent,
   Download,
-  Building,
-  Truck
+  Building
 } from 'lucide-react';
 import { 
   Reservation, 
@@ -74,18 +72,9 @@ type ManagementTab =
   | 'reports' 
   | 'database';
 
-export default function ManagementPage() {
-  return (
-    <StaffAuthGuard
-      portalName="Enterprise Operations & Admin Dashboard"
-      allowedRoles={['Admin', 'Manager']}
-    >
-      <ManagementContent />
-    </StaffAuthGuard>
-  );
-}
-
-function ManagementContent() {
+export default function OperationsDashboard({ portalRole = 'Admin' }: { portalRole?: 'Admin' | 'Manager' }) {
+  const { currentStaff } = useStaffAuth();
+  const isAdmin = portalRole === 'Admin' && currentStaff?.role === 'Admin';
   const [activeTab, setActiveTab] = useState<ManagementTab>('overview');
   const [currentTime, setCurrentTime] = useState<string>('');
 
@@ -598,31 +587,13 @@ function ManagementContent() {
                 FLAVORIA RESTAURANT
               </span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/10 text-[#ea580c] border border-orange-500/30 font-bold uppercase">
-                ENTERPRISE SUITE
+                {isAdmin ? 'ADMIN CONTROL CENTER' : 'MANAGER OPERATIONS PORTAL'}
               </span>
             </div>
           </div>
 
-          {/* Quick Screen Launchers & Clock & Neon DB Status */}
+          {/* Clock & Neon DB Status */}
           <div className="flex items-center gap-2.5 text-xs w-full sm:w-auto justify-end flex-wrap">
-            <Link
-              href="/kitchen"
-              className="px-3 py-1.5 rounded-xl bg-orange-600/20 hover:bg-orange-600/30 text-[#ea580c] border border-orange-500/30 font-bold flex items-center gap-1.5 transition-colors"
-              title="Launch Fullscreen Kitchen Display Screen"
-            >
-              <ChefHat className="w-3.5 h-3.5" />
-              <span>KDS Screen</span>
-            </Link>
-
-            <Link
-              href="/driver"
-              className="px-3 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 font-bold flex items-center gap-1.5 transition-colors"
-              title="Launch Delivery Staff Portal"
-            >
-              <Truck className="w-3.5 h-3.5" />
-              <span>Driver Dispatch</span>
-            </Link>
-
             <Link
               href="/account"
               className="px-3 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 font-bold flex items-center gap-1.5 transition-colors"
@@ -637,17 +608,19 @@ function ManagementContent() {
               <span>{currentTime || '19:30:00'}</span>
             </div>
 
-            <button
-              onClick={() => setActiveTab('database')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
-                dbStatus?.connected
-                  ? 'bg-emerald-950/50 border-emerald-500/40 text-emerald-300'
-                  : 'bg-amber-950/40 border-amber-500/40 text-amber-300'
-              }`}
-            >
-              <Database className="w-3.5 h-3.5" />
-              <span>{dbStatus?.connected ? 'Neon DB-Only Live' : 'DB Connection Error'}</span>
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setActiveTab('database')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
+                  dbStatus?.connected
+                    ? 'bg-emerald-950/50 border-emerald-500/40 text-emerald-300'
+                    : 'bg-amber-950/40 border-amber-500/40 text-amber-300'
+                }`}
+              >
+                <Database className="w-3.5 h-3.5" />
+                <span>{dbStatus?.connected ? 'Neon DB-Only Live' : 'DB Connection Error'}</span>
+              </button>
+            )}
 
             <button
               onClick={() => fetchData()}
@@ -661,7 +634,7 @@ function ManagementContent() {
         </div>
       </header>
 
-      {/* 12 Tab Navigation Bar */}
+      {/* Role-Filtered Tab Navigation Bar */}
       <div className="bg-[#090d16] border-b border-slate-800 px-4 sm:px-8">
         <div className="max-w-7xl mx-auto flex items-center gap-1.5 overflow-x-auto scrollbar-none py-2 text-xs">
           
@@ -718,7 +691,7 @@ function ManagementContent() {
             }`}
           >
             <ChefHat className="w-4 h-4" />
-            <span>Kitchen KDS</span>
+            <span>Kitchen &amp; Orders</span>
             {activeKdsCount > 0 && (
               <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500 text-white animate-pulse">
                 {activeKdsCount}
@@ -733,7 +706,7 @@ function ManagementContent() {
             }`}
           >
             <UtensilsCrossed className="w-4 h-4" />
-            <span>Menu & 86&apos;d</span>
+            <span>Menu &amp; Availability</span>
           </button>
 
           <button
@@ -746,55 +719,59 @@ function ManagementContent() {
             <span>Inventory</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('staff')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${
-              activeTab === 'staff' ? 'bg-[#ea580c] text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <UserCheck className="w-4 h-4" />
-            <span>Staff & Shifts</span>
-          </button>
+          {isAdmin && (
+            <>
+              <button
+                onClick={() => setActiveTab('staff')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${
+                  activeTab === 'staff' ? 'bg-[#ea580c] text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <UserCheck className="w-4 h-4" />
+                <span>Staff &amp; Shifts</span>
+              </button>
 
-          <button
-            onClick={() => setActiveTab('crm')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${
-              activeTab === 'crm' ? 'bg-[#ea580c] text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <Crown className="w-4 h-4" />
-            <span>VIP CRM</span>
-          </button>
+              <button
+                onClick={() => setActiveTab('crm')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${
+                  activeTab === 'crm' ? 'bg-[#ea580c] text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <Crown className="w-4 h-4" />
+                <span>VIP CRM</span>
+              </button>
 
-          <button
-            onClick={() => setActiveTab('marketing')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${
-              activeTab === 'marketing' ? 'bg-[#ea580c] text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <Percent className="w-4 h-4" />
-            <span>Marketing</span>
-          </button>
+              <button
+                onClick={() => setActiveTab('marketing')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${
+                  activeTab === 'marketing' ? 'bg-[#ea580c] text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <Percent className="w-4 h-4" />
+                <span>Marketing</span>
+              </button>
 
-          <button
-            onClick={() => setActiveTab('reports')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${
-              activeTab === 'reports' ? 'bg-[#ea580c] text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>Z-Reports</span>
-          </button>
+              <button
+                onClick={() => setActiveTab('reports')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${
+                  activeTab === 'reports' ? 'bg-[#ea580c] text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Z-Reports</span>
+              </button>
 
-          <button
-            onClick={() => setActiveTab('database')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${
-              activeTab === 'database' ? 'bg-[#ea580c] text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <Database className="w-4 h-4" />
-            <span>Database</span>
-          </button>
+              <button
+                onClick={() => setActiveTab('database')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition-all ${
+                  activeTab === 'database' ? 'bg-[#ea580c] text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <Database className="w-4 h-4" />
+                <span>Database &amp; Settings</span>
+              </button>
+            </>
+          )}
 
         </div>
       </div>
@@ -862,22 +839,41 @@ function ManagementContent() {
               <div className="space-y-8 animate-fade-in">
                 {/* KPI Cards Row */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                  <div className="p-5 rounded-2xl bg-[#0f1420] border border-slate-800 flex items-center justify-between">
-                    <div>
-                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                        Total Revenue (Live)
-                      </span>
-                      <h3 className="font-serif text-2xl font-bold text-white">
-                        ${totalGrossRevenue.toFixed(2)}
-                      </h3>
-                      <span className="text-[10px] text-emerald-400 font-semibold block mt-1">
-                        +18.4% vs last evening service
-                      </span>
+                  {isAdmin ? (
+                    <div className="p-5 rounded-2xl bg-[#0f1420] border border-slate-800 flex items-center justify-between">
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                          Total Revenue (Live)
+                        </span>
+                        <h3 className="font-serif text-2xl font-bold text-white">
+                          ${totalGrossRevenue.toFixed(2)}
+                        </h3>
+                        <span className="text-[10px] text-emerald-400 font-semibold block mt-1">
+                          +18.4% vs last evening service
+                        </span>
+                      </div>
+                      <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-[#ea580c] flex items-center justify-center">
+                        <DollarSign className="w-6 h-6" />
+                      </div>
                     </div>
-                    <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-[#ea580c] flex items-center justify-center">
-                      <DollarSign className="w-6 h-6" />
+                  ) : (
+                    <div className="p-5 rounded-2xl bg-[#0f1420] border border-slate-800 flex items-center justify-between">
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                          Active Menu Items
+                        </span>
+                        <h3 className="font-serif text-2xl font-bold text-white">
+                          {menuItems.filter(m => m.isAvailable).length} Dishes
+                        </h3>
+                        <span className="text-[10px] text-emerald-400 font-semibold block mt-1">
+                          {menuItems.filter(m => !m.isAvailable).length} marked 86&apos;d / sold out
+                        </span>
+                      </div>
+                      <div className="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-[#ea580c] flex items-center justify-center">
+                        <UtensilsCrossed className="w-6 h-6" />
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <div className="p-5 rounded-2xl bg-[#0f1420] border border-slate-800 flex items-center justify-between">
                     <div>
@@ -968,14 +964,25 @@ function ManagementContent() {
                       <span className="text-[10px] text-slate-400">Seat or clear tables</span>
                     </button>
 
-                    <button
-                      onClick={handleExportCSV}
-                      className="p-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-left transition-all"
-                    >
-                      <Download className="w-4 h-4 text-sky-400 mb-2" />
-                      <strong className="block text-white">Export Daily Z-Report</strong>
-                      <span className="text-[10px] text-slate-400">Download CSV audit</span>
-                    </button>
+                    {isAdmin ? (
+                      <button
+                        onClick={handleExportCSV}
+                        className="p-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-left transition-all"
+                      >
+                        <Download className="w-4 h-4 text-sky-400 mb-2" />
+                        <strong className="block text-white">Export Daily Z-Report</strong>
+                        <span className="text-[10px] text-slate-400">Download CSV audit</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => { setActiveTab('menu'); }}
+                        className="p-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-left transition-all"
+                      >
+                        <UtensilsCrossed className="w-4 h-4 text-sky-400 mb-2" />
+                        <strong className="block text-white">Menu Availability</strong>
+                        <span className="text-[10px] text-slate-400">86 / restore live dishes</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -1424,13 +1431,15 @@ function ManagementContent() {
                     ))}
                   </div>
 
-                  <button
-                    onClick={handleOpenCreateDish}
-                    className="px-4 py-2 rounded-xl btn-primary-orange text-xs font-bold uppercase tracking-wider flex items-center gap-1.5"
-                  >
-                    <Plus className="w-3.5 h-3.5 text-white" />
-                    <span>Add New Dish</span>
-                  </button>
+                  {isAdmin && (
+                    <button
+                      onClick={handleOpenCreateDish}
+                      className="px-4 py-2 rounded-xl btn-primary-orange text-xs font-bold uppercase tracking-wider flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-white" />
+                      <span>Add New Dish</span>
+                    </button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -1453,20 +1462,24 @@ function ManagementContent() {
                       <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
                         <span className="font-bold text-white text-base">${dish.price.toFixed(2)}</span>
                         <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => handleOpenEditDish(dish)}
-                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-                            title="Edit dish"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteDish(dish)}
-                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-950 text-rose-400 transition-colors"
-                            title="Delete dish"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {isAdmin && (
+                            <>
+                              <button
+                                onClick={() => handleOpenEditDish(dish)}
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                                title="Edit dish"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteDish(dish)}
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-950 text-rose-400 transition-colors"
+                                title="Delete dish"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
                           <button
                             onClick={() => handleToggleDishAvailability(dish)}
                             className={`px-3 py-1.5 rounded-xl text-xs font-bold ${
@@ -1562,7 +1575,7 @@ function ManagementContent() {
             {/* ==================================================== */}
             {/* TAB 8: STAFF ROSTER & TIP POOL                       */}
             {/* ==================================================== */}
-            {activeTab === 'staff' && (
+            {isAdmin && activeTab === 'staff' && (
               <div className="space-y-6 animate-fade-in">
                 <div className="p-6 rounded-3xl bg-[#0b0f19] border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-6">
                   <div>
@@ -1621,7 +1634,7 @@ function ManagementContent() {
             {/* ==================================================== */}
             {/* TAB 9: VIP GUEST CRM                                 */}
             {/* ==================================================== */}
-            {activeTab === 'crm' && (
+            {isAdmin && activeTab === 'crm' && (
               <div className="space-y-6 animate-fade-in">
                 <div className="p-4 rounded-2xl bg-[#0f1420] border border-slate-800 flex items-center justify-between">
                   <div>
@@ -1677,7 +1690,7 @@ function ManagementContent() {
             {/* ==================================================== */}
             {/* TAB 10: MARKETING & PROMOS                           */}
             {/* ==================================================== */}
-            {activeTab === 'marketing' && (
+            {isAdmin && activeTab === 'marketing' && (
               <div className="space-y-8 animate-fade-in">
                 {/* Active Promo Codes */}
                 <div className="p-6 rounded-3xl bg-[#0b0f19] border border-slate-800 space-y-4">
@@ -1726,7 +1739,7 @@ function ManagementContent() {
             {/* ==================================================== */}
             {/* TAB 11: FINANCIAL Z-REPORTS & CSV EXPORT             */}
             {/* ==================================================== */}
-            {activeTab === 'reports' && (
+            {isAdmin && activeTab === 'reports' && (
               <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
                 <div className="p-8 rounded-3xl bg-[#0b0f19] border border-slate-800 space-y-6">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
@@ -1776,7 +1789,7 @@ function ManagementContent() {
             {/* ==================================================== */}
             {/* TAB 12: NEON DATABASE-ONLY & INSTANT CACHE ENGINE    */}
             {/* ==================================================== */}
-            {activeTab === 'database' && (
+            {isAdmin && activeTab === 'database' && (
               <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
                 <div className="p-8 rounded-3xl bg-[#0b0f19] border border-slate-800 space-y-6">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
